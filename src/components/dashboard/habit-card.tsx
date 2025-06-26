@@ -35,7 +35,10 @@ export function HabitCard({ habit: initialHabit }: HabitCardProps) {
 
       const result = await getHabitFeedback({
         habitName: updatedHabit.name,
+        description: updatedHabit.description,
         habitType: updatedHabit.type,
+        habitFrequency: updatedHabit.frequency,
+        habitGoal: updatedHabit.goal,
         habitStatus: updatedHabit.completed,
       });
 
@@ -61,7 +64,7 @@ export function HabitCard({ habit: initialHabit }: HabitCardProps) {
           </div>
           {habit.completed && <Badge variant="secondary">Done!</Badge>}
         </div>
-        <CardDescription>{habit.target}</CardDescription>
+        <CardDescription>{habit.goal}</CardDescription>
       </CardHeader>
       <CardContent className="flex-grow">
         <Progress value={habit.progress} aria-label={`${habit.name} progress`} />

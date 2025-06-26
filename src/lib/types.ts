@@ -1,10 +1,15 @@
+export type HabitType = 'duration' | 'time' | 'boolean' | 'number' | 'options';
+export type HabitFrequency = 'daily' | 'weekly';
+
 export type Habit = {
   id: string;
   name: string;
-  type: 'daily' | 'weekly' | 'duration' | 'time' | 'boolean' | 'enum';
+  description: string;
+  type: HabitType;
+  frequency: HabitFrequency;
   icon: string;
+  goal: string;
   progress: number; // 0-100
-  target: string; // e.g., "30 minutes", "8:00 PM", "Completed"
   completed: boolean;
   feedback?: string;
 };

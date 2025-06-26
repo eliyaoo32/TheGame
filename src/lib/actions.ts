@@ -6,14 +6,22 @@ import { z } from 'zod';
 
 const getHabitFeedbackSchema = z.object({
   habitName: z.string(),
-  habitType: z.enum(['daily', 'weekly', 'duration', 'time', 'boolean', 'enum']),
+  description: z.string(),
+  habitType: z.enum(['duration', 'time', 'boolean', 'number', 'options']),
+  habitFrequency: z.enum(['daily', 'weekly']),
+  habitGoal: z.string(),
   habitStatus: z.boolean(),
 });
 
 export async function getHabitFeedback(input: z.infer<typeof getHabitFeedbackSchema>) {
   try {
     const validatedInput: AiHabitFeedbackInput = {
-      ...input,
+      habitName: input.habitName,
+      habitDescription: input.description,
+      habitType: input.habitType,
+      habitFrequency: input.habitFrequency,
+      habitGoal: input.habitGoal,
+      habitStatus: input.habitStatus,
       lastCompletionDate: new Date().toISOString(),
     };
     const result = await aiHabitFeedback(validatedInput);
