@@ -80,7 +80,8 @@ export default function ManageHabitsPage() {
             description: `"${savedHabitData.name}" has been saved.`,
         });
       } else {
-        await addHabit(savedHabitData);
+        const { id, ...dataToAdd } = savedHabitData;
+        await addHabit(dataToAdd);
         toast({
             title: 'Habit added!',
             description: `"${savedHabitData.name}" has been saved.`,
