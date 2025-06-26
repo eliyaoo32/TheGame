@@ -14,6 +14,7 @@ export default function DashboardPage() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
   const [completingHabitId, setCompletingHabitId] = useState<string | null>(null);
+  const [currentDate, setCurrentDate] = useState('');
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
@@ -37,6 +38,15 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchHabits();
   }, [fetchHabits]);
+
+  useEffect(() => {
+    setCurrentDate(new Date().toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    }));
+  }, []);
 
   const handleHabitComplete = (habit: Habit) => {
     startTransition(async () => {
@@ -80,13 +90,6 @@ export default function DashboardPage() {
 
   const dailyHabits = habits.filter((habit) => habit.frequency === 'daily');
   const weeklyHabits = habits.filter((habit) => habit.frequency === 'weekly');
-
-  const currentDate = new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
 
   return (
     <>
