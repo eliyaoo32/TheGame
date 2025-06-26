@@ -1,8 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { Habit } from '@/lib/types';
-import { placeholderHabits } from '@/lib/placeholder-data';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -38,26 +37,63 @@ import {
 import { AddHabitDialog } from '@/components/dashboard/add-habit-dialog';
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getHabits, addHabit, updateHabit, deleteHabit } from '@/services/habits';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function ManageHabitsPage() {
-  const [habits, setHabits] = useState<Habit[]>(placeholderHabits);
+  const [habits, setHabits] = useState<Habit[]>([]);
+  const [loading, setLoading] = useState(true);
   const [habitToEdit, setHabitToEdit] = useState<Habit | undefined>(undefined);
   const [isAddDialogOpen, setAddDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [habitToDelete, setHabitToDelete] = useState<Habit | null>(null);
   const { toast } = useToast();
 
-  const handleSaveHabit = (savedHabitData: Omit<Habit, 'id' | 'progress' | 'completed' | 'feedback'> & { id?: string }) => {
-    if (savedHabitData.id) {
-      setHabits(habits.map(h => h.id === savedHabitData.id ? { ...h, ...savedHabitData } : h));
-    } else {
-      const newHabit: Habit = {
-        ...savedHabitData,
-        id: crypto.randomUUID(),
-        progress: 0,
-        completed: false,
-      };
-      setHabits(prevHabits => [...prevHabits, newHabit]);
+  const fetchHabits = useCallback(async () => {
+    setLoading(true);
+    try {
+      const fetchedHabits = await getHabits();
+      setHabits(fetchedHabits);
+    } catch (error) {
+      console.error("Failed to fetch habits:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not fetch your habits. Please try again later.',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchHabits();
+  }, [fetchHabits]);
+
+  const handleSaveHabit = async (savedHabitData: Omit<Habit, 'id' | 'progress' | 'completed' | 'feedback'> & { id?: string }) => {
+    try {
+      if (savedHabitData.id) {
+        const { id, ...dataToUpdate } = savedHabitData;
+        await updateHabit(id, dataToUpdate);
+        toast({
+            title: 'Habit updated!',
+            description: `"${savedHabitData.name}" has been saved.`,
+        });
+      } else {
+        await addHabit(savedHabitData);
+        toast({
+            title: 'Habit added!',
+            description: `"${savedHabitData.name}" has been saved.`,
+        });
+      }
+      await fetchHabits();
+    } catch (error) {
+        console.error("Failed to save habit:", error);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to save habit. Please try again.',
+        });
     }
   };
 
@@ -71,15 +107,26 @@ export default function ManageHabitsPage() {
     setDeleteDialogOpen(true);
   };
 
-  const handleDeleteHabit = () => {
+  const handleDeleteHabit = async () => {
     if (habitToDelete) {
-      setHabits(habits.filter(h => h.id !== habitToDelete.id));
-      toast({
-        title: 'Habit deleted',
-        description: `"${habitToDelete.name}" has been removed.`,
-      });
-      setHabitToDelete(null);
-      setDeleteDialogOpen(false);
+      try {
+        await deleteHabit(habitToDelete.id);
+        toast({
+          title: 'Habit deleted',
+          description: `"${habitToDelete.name}" has been removed.`,
+        });
+        await fetchHabits();
+      } catch (error) {
+        console.error("Failed to delete habit:", error);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to delete habit. Please try again.',
+        });
+      } finally {
+        setHabitToDelete(null);
+        setDeleteDialogOpen(false);
+      }
     }
   };
 
@@ -127,7 +174,17 @@ export default function ManageHabitsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {habits.length > 0 ? (
+              {loading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                    <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-40" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                  </TableRow>
+                ))
+              ) : habits.length > 0 ? (
                 habits.map(habit => (
                   <TableRow key={habit.id}>
                     <TableCell className="font-medium">{habit.name}</TableCell>

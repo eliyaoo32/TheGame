@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useTransition } from 'react';
 import type { Habit } from '@/lib/types';
 import {
   Card,
@@ -13,45 +12,22 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Sparkles } from 'lucide-react';
-import { getHabitFeedback } from '@/lib/actions';
-import { useToast } from '@/hooks/use-toast';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 import { HabitIcon } from '@/components/habit-icon';
 
 interface HabitCardProps {
   habit: Habit;
+  onComplete: (habit: Habit) => void;
+  isCompleting?: boolean;
 }
 
-export function HabitCard({ habit: initialHabit }: HabitCardProps) {
-  const [habit, setHabit] = useState(initialHabit);
-  const [isPending, startTransition] = useTransition();
-  const { toast } = useToast();
+export function HabitCard({ habit, onComplete, isCompleting }: HabitCardProps) {
 
   const handleComplete = () => {
-    startTransition(async () => {
-      const updatedHabit = { ...habit, completed: true, progress: 100 };
-      setHabit(updatedHabit);
-
-      const result = await getHabitFeedback({
-        habitName: updatedHabit.name,
-        description: updatedHabit.description,
-        habitType: updatedHabit.type,
-        habitFrequency: updatedHabit.frequency,
-        habitGoal: updatedHabit.goal,
-        habitStatus: updatedHabit.completed,
-      });
-
-      if (result.success) {
-        setHabit((prev) => ({ ...prev, feedback: result.feedback }));
-      } else {
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: result.error,
-        });
-      }
-    });
+    if (!habit.completed && !isCompleting) {
+        onComplete(habit);
+    }
   };
 
   const getStatusText = () => {
@@ -98,10 +74,10 @@ export function HabitCard({ habit: initialHabit }: HabitCardProps) {
       <CardFooter>
         <Button
           onClick={handleComplete}
-          disabled={habit.completed || isPending}
+          disabled={habit.completed || isCompleting}
           className="w-full"
         >
-          {isPending ? 'Updating...' : 'Mark as Complete'}
+          {isCompleting ? 'Updating...' : 'Mark as Complete'}
         </Button>
       </CardFooter>
     </Card>
