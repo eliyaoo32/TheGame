@@ -7,6 +7,8 @@ import {
   deleteDoc,
   Timestamp,
   query,
+  type DocumentData,
+  type QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Habit } from '@/lib/types';
@@ -16,6 +18,13 @@ import { placeholderHabits } from '@/lib/placeholder-data';
 const userId = 'test-user';
 
 const habitsCollectionRef = collection(db, 'users', userId, 'habits');
+
+const mapDocToHabit = (doc: QueryDocumentSnapshot<DocumentData, DocumentData>): Habit => {
+    const data = doc.data();
+    // Destructure to remove non-serializable fields like Timestamps before sending to client
+    const { createdAt, ...rest } = data;
+    return { id: doc.id, ...rest } as Habit;
+};
 
 export const getHabits = async (): Promise<Habit[]> => {
   try {
@@ -30,10 +39,10 @@ export const getHabits = async (): Promise<Habit[]> => {
         }
         // Fetch again after seeding
         const seededSnapshot = await getDocs(query(habitsCollectionRef));
-        return seededSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Habit));
+        return seededSnapshot.docs.map(mapDocToHabit);
     }
 
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Habit));
+    return snapshot.docs.map(mapDocToHabit);
   } catch (error) {
     console.error("Error fetching habits: ", error);
     if (error instanceof Error && error.message.includes('permission-denied')) {

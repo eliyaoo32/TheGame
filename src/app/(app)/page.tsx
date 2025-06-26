@@ -9,11 +9,12 @@ import { getHabits, updateHabit } from '@/services/habits';
 import { getHabitFeedback } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ReportProgressDialog } from '@/components/dashboard/report-progress-dialog';
 
 export default function DashboardPage() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
-  const [completingHabitId, setCompletingHabitId] = useState<string | null>(null);
+  const [reportingHabit, setReportingHabit] = useState<Habit | null>(null);
   const [currentDate, setCurrentDate] = useState('');
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
@@ -48,42 +49,63 @@ export default function DashboardPage() {
     }));
   }, []);
 
-  const handleHabitComplete = (habit: Habit) => {
+  const handleSaveProgress = (habit: Habit, value: any) => {
     startTransition(async () => {
-      setCompletingHabitId(habit.id);
-      
-      const updatedHabit = { ...habit, completed: true, progress: 100 };
+      let progress = habit.progress;
+      let completed = habit.completed;
+
+      if (habit.type === 'boolean' || habit.type === 'time' || habit.type === 'options') {
+        progress = 100;
+        completed = true;
+      } else if (habit.type === 'number' || habit.type === 'duration') {
+        const goalValue = parseInt(habit.goal.match(/\d+/)?.[0] || '1', 10);
+        const reportedValue = Number(value);
+        if (!isNaN(reportedValue) && goalValue > 0) {
+          // For now, we assume each report adds to progress.
+          // A more complex implementation could track cumulative values.
+          const currentProgressValue = (habit.progress / 100) * goalValue;
+          const newTotalValue = currentProgressValue + reportedValue;
+          progress = Math.min(100, Math.round((newTotalValue / goalValue) * 100));
+        }
+      }
+
+      completed = progress >= 100;
+
+      const updatedHabit = { ...habit, progress, completed };
       setHabits((prev) => prev.map((h) => (h.id === habit.id ? updatedHabit : h)));
+      setReportingHabit(null);
       
       try {
-        await updateHabit(habit.id, { completed: true, progress: 100 });
-        
-        const result = await getHabitFeedback({
-          habitName: updatedHabit.name,
-          description: updatedHabit.description,
-          habitType: updatedHabit.type,
-          habitFrequency: updatedHabit.frequency,
-          habitGoal: updatedHabit.goal,
-          habitStatus: updatedHabit.completed,
-        });
+        await updateHabit(habit.id, { progress, completed });
+        toast({ title: "Progress saved!", description: `Your progress for "${habit.name}" has been updated.`});
 
-        if (result.success && result.feedback) {
-          await updateHabit(habit.id, { feedback: result.feedback });
-          setHabits((prev) =>
-            prev.map((h) =>
-              h.id === habit.id ? { ...updatedHabit, feedback: result.feedback } : h
-            )
-          );
-        } else if (!result.success) {
-            toast({ variant: 'destructive', title: 'Error', description: result.error });
+        // If the habit is now completed and wasn't before, get AI feedback.
+        if (completed && !habit.completed) {
+            const result = await getHabitFeedback({
+              habitName: updatedHabit.name,
+              description: updatedHabit.description,
+              habitType: updatedHabit.type,
+              habitFrequency: updatedHabit.frequency,
+              habitGoal: updatedHabit.goal,
+              habitStatus: updatedHabit.completed,
+            });
+
+            if (result.success && result.feedback) {
+              await updateHabit(habit.id, { feedback: result.feedback });
+              setHabits((prev) =>
+                prev.map((h) =>
+                  h.id === habit.id ? { ...updatedHabit, feedback: result.feedback } : h
+                )
+              );
+            } else if (!result.success) {
+                toast({ variant: 'destructive', title: 'AI Feedback Error', description: result.error });
+            }
         }
       } catch (error) {
          console.error("Failed to update habit:", error);
-         toast({ variant: 'destructive', title: 'Error', description: 'Could not complete habit.' });
+         toast({ variant: 'destructive', title: 'Error', description: 'Could not save your progress.' });
          // Revert optimistic update
          setHabits((prev) => prev.map((h) => (h.id === habit.id ? habit : h)));
-      } finally {
-        setCompletingHabitId(null);
       }
     });
   };
@@ -128,8 +150,8 @@ export default function DashboardPage() {
                     <HabitCard 
                         key={habit.id} 
                         habit={habit} 
-                        onComplete={handleHabitComplete}
-                        isCompleting={isPending && completingHabitId === habit.id}
+                        onReport={() => setReportingHabit(habit)}
+                        isReporting={isPending && reportingHabit?.id === habit.id}
                     />
                   ))}
                 </div>
@@ -150,8 +172,8 @@ export default function DashboardPage() {
                      <HabitCard 
                         key={habit.id} 
                         habit={habit} 
-                        onComplete={handleHabitComplete}
-                        isCompleting={isPending && completingHabitId === habit.id}
+                        onReport={() => setReportingHabit(habit)}
+                        isReporting={isPending && reportingHabit?.id === habit.id}
                     />
                   ))}
                 </div>
@@ -165,6 +187,14 @@ export default function DashboardPage() {
         )}
       </div>
       <ChatReporter />
+
+      <ReportProgressDialog
+        habit={reportingHabit}
+        open={!!reportingHabit}
+        onOpenChange={(open) => !open && setReportingHabit(null)}
+        onSave={handleSaveProgress}
+        isSaving={isPending}
+       />
     </>
   );
 }

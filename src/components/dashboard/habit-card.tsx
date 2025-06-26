@@ -18,20 +18,20 @@ import { HabitIcon } from '@/components/habit-icon';
 
 interface HabitCardProps {
   habit: Habit;
-  onComplete: (habit: Habit) => void;
-  isCompleting?: boolean;
+  onReport: (habit: Habit) => void;
+  isReporting?: boolean;
 }
 
-export function HabitCard({ habit, onComplete, isCompleting }: HabitCardProps) {
+export function HabitCard({ habit, onReport, isReporting }: HabitCardProps) {
 
-  const handleComplete = () => {
-    if (!habit.completed && !isCompleting) {
-        onComplete(habit);
+  const handleReport = () => {
+    if (!habit.completed && !isReporting) {
+        onReport(habit);
     }
   };
 
   const getStatusText = () => {
-    if (habit.type === 'boolean' || habit.type === 'time') {
+    if (habit.type === 'boolean' || habit.type === 'time' || habit.type === 'options') {
       return `Goal: ${habit.goal}`;
     }
 
@@ -73,11 +73,11 @@ export function HabitCard({ habit, onComplete, isCompleting }: HabitCardProps) {
       </CardContent>
       <CardFooter>
         <Button
-          onClick={handleComplete}
-          disabled={habit.completed || isCompleting}
+          onClick={handleReport}
+          disabled={habit.completed || isReporting}
           className="w-full"
         >
-          {isCompleting ? 'Updating...' : 'Mark as Complete'}
+          {isReporting ? 'Saving...' : 'Report Progress'}
         </Button>
       </CardFooter>
     </Card>
