@@ -7,6 +7,7 @@ import {
   deleteDoc,
   Timestamp,
   query,
+  writeBatch,
   type DocumentData,
   type QueryDocumentSnapshot,
 } from 'firebase/firestore';
@@ -33,10 +34,14 @@ export const getHabits = async (): Promise<Habit[]> => {
     // If the database is empty, seed it with placeholder data for the first run.
     if (snapshot.empty && placeholderHabits.length > 0) {
         console.log("No habits found for user, seeding with placeholder data...");
-        for (const habit of placeholderHabits) {
+        const batch = writeBatch(db);
+        placeholderHabits.forEach((habit) => {
             const { id, ...habitData } = habit;
-            await addDoc(habitsCollectionRef, { ...habitData, createdAt: Timestamp.now() });
-        }
+            const newHabitRef = doc(habitsCollectionRef);
+            batch.set(newHabitRef, { ...habitData, createdAt: Timestamp.now() });
+        });
+        await batch.commit();
+        
         // Fetch again after seeding
         const seededSnapshot = await getDocs(query(habitsCollectionRef));
         return seededSnapshot.docs.map(mapDocToHabit);
