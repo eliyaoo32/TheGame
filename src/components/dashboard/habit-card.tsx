@@ -54,6 +54,26 @@ export function HabitCard({ habit: initialHabit }: HabitCardProps) {
     });
   };
 
+  const getStatusText = () => {
+    if (habit.type === 'boolean' || habit.type === 'time') {
+      return `Goal: ${habit.goal}`;
+    }
+
+    const goalParts = habit.goal.match(/(\d+)\s*(.*)/);
+    if (!goalParts) {
+      return `Goal: ${habit.goal}`;
+    }
+
+    const goalValue = parseInt(goalParts[1], 10);
+    const unit = goalParts[2] || '';
+
+    const currentValue = habit.completed
+      ? goalValue
+      : Math.floor((habit.progress / 100) * goalValue);
+
+    return `Status: ${currentValue} / ${goalValue} ${unit.trim()}`;
+  };
+
   return (
     <Card className={cn("flex flex-col transition-shadow duration-200 hover:shadow-lg", habit.completed && "bg-muted/60")}>
       <CardHeader>
@@ -64,7 +84,7 @@ export function HabitCard({ habit: initialHabit }: HabitCardProps) {
           </div>
           {habit.completed && <Badge variant="secondary">Done!</Badge>}
         </div>
-        <CardDescription>{habit.goal}</CardDescription>
+        <CardDescription>{getStatusText()}</CardDescription>
       </CardHeader>
       <CardContent className="flex-grow">
         <Progress value={habit.progress} aria-label={`${habit.name} progress`} />
