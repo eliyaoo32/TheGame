@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -14,7 +14,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import {
@@ -24,14 +23,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { PlusCircle } from 'lucide-react';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { HabitIcon } from '@/components/habit-icon';
 
 interface AddHabitDialogProps {
-  onAddHabit: (habit: Omit<Habit, 'id' | 'progress' | 'completed' | 'feedback'>) => void;
+  onSave: (habit: Omit<Habit, 'id' | 'progress' | 'completed' | 'feedback'> & { id?: string }) => void;
+  habitToEdit?: Habit;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 const addHabitSchema = z.object({
@@ -47,9 +48,9 @@ type AddHabitFormValues = z.infer<typeof addHabitSchema>;
 
 const iconNames = ['Dumbbell', 'BookOpen', 'Leaf', 'Target', 'Clock'];
 
-export function AddHabitDialog({ onAddHabit }: AddHabitDialogProps) {
-  const [open, setOpen] = useState(false);
+export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange }: AddHabitDialogProps) {
   const { toast } = useToast();
+  const isEditMode = !!habitToEdit;
 
   const form = useForm<AddHabitFormValues>({
     resolver: zodResolver(addHabitSchema),
@@ -63,35 +64,42 @@ export function AddHabitDialog({ onAddHabit }: AddHabitDialogProps) {
     },
   });
 
+  useEffect(() => {
+    if (open && habitToEdit) {
+      form.reset(habitToEdit);
+    } else if (open && !habitToEdit) {
+      form.reset({
+        name: '',
+        description: '',
+        frequency: 'daily',
+        type: 'boolean',
+        goal: '',
+        icon: '',
+      });
+    }
+  }, [habitToEdit, open, form]);
+
   const onSubmit = (data: AddHabitFormValues) => {
-    onAddHabit({
+    onSave({
       ...data,
+      id: habitToEdit?.id,
       type: data.type as HabitType,
       frequency: data.frequency as HabitFrequency
     });
-    setOpen(false);
-    form.reset();
+    onOpenChange(false);
     toast({
-      title: 'Habit added!',
-      description: `"${data.name}" is now on your dashboard.`,
+      title: isEditMode ? 'Habit updated!' : 'Habit added!',
+      description: `"${data.name}" has been saved.`,
     });
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" className="h-8 gap-1">
-          <PlusCircle className="h-3.5 w-3.5" />
-          <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-            Add Habit
-          </span>
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle className="font-headline">Create New Habit</DialogTitle>
+          <DialogTitle className="font-headline">{isEditMode ? 'Edit Habit' : 'Create New Habit'}</DialogTitle>
           <DialogDescription>
-            Define a new habit to start tracking your progress.
+            {isEditMode ? 'Make changes to your habit here. Click save when you\'re done.' : 'Define a new habit to start tracking your progress.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -132,7 +140,7 @@ export function AddHabitDialog({ onAddHabit }: AddHabitDialogProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Icon</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select an icon" />
@@ -160,7 +168,7 @@ export function AddHabitDialog({ onAddHabit }: AddHabitDialogProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Frequency</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select..." />
@@ -181,7 +189,7 @@ export function AddHabitDialog({ onAddHabit }: AddHabitDialogProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select..." />
@@ -214,8 +222,8 @@ export function AddHabitDialog({ onAddHabit }: AddHabitDialogProps) {
               )}
             />
             <DialogFooter>
-                <Button type="button" variant="ghost" onClick={() => { form.reset(); setOpen(false); }}>Cancel</Button>
-                <Button type="submit">Save Habit</Button>
+                <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+                <Button type="submit">{isEditMode ? 'Save Changes' : 'Save Habit'}</Button>
             </DialogFooter>
           </form>
         </Form>
