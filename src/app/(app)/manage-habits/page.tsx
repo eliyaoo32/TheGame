@@ -37,7 +37,7 @@ import {
 import { AddHabitDialog } from '@/components/dashboard/add-habit-dialog';
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getHabits, addHabit, updateHabit, deleteHabit, seedInitialHabits } from '@/services/habits';
+import { getHabits, addHabit, updateHabit, deleteHabit } from '@/services/habits';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function ManageHabitsPage() {
@@ -67,13 +67,7 @@ export default function ManageHabitsPage() {
   }, [toast]);
 
   useEffect(() => {
-    const seedAndFetch = async () => {
-      // This will check and seed data if the database is empty.
-      // It's safe to run on every page load as it won't add duplicates.
-      await seedInitialHabits();
-      await fetchHabits();
-    };
-    seedAndFetch();
+    fetchHabits();
   }, [fetchHabits]);
 
   const handleSaveHabit = async (savedHabitData: Omit<Habit, 'id' | 'progress' | 'completed' | 'reports' | 'lastReportedValue'> & { id?: string }) => {

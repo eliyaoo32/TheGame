@@ -12,8 +12,6 @@ import {
   where,
   type DocumentData,
   type QueryDocumentSnapshot,
-  getDoc,
-  setDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Habit, HabitFrequency, HabitReport } from '@/lib/types';
@@ -283,53 +281,4 @@ export const getUniqueReportMonths = async (): Promise<Date[]> => {
     return Array.from(uniqueMonths)
         .map(ym => parse(ym, 'yyyy-MM', new Date()))
         .sort((a, b) => b.getTime() - a.getTime());
-};
-
-export const seedInitialHabits = async () => {
-    const firstHabitCheckRef = doc(db, 'users', userId, 'habits', 'habit-arabic-words');
-    const docSnap = await getDoc(firstHabitCheckRef);
-
-    if (docSnap.exists()) {
-        console.log("Initial data already exists. Skipping seeding.");
-        return;
-    }
-
-    console.log("No initial data found. Seeding database...");
-    
-    const habitsToSeed = [
-        // Arabic
-        { id: "habit-arabic-words", name: "Arabic Words", description: "Track reviewing words in Arabic every day", frequency: "daily", type: "boolean", goal: "Review 10 words", icon: "Languages" },
-        { id: "habit-arabic-speaking", name: "Arabic Speaking", description: "Track total time I spent speaking Arabic in a week", frequency: "weekly", type: "duration", goal: "60 minutes", icon: "Languages" },
-        { id: "habit-arabic-studying", name: "Arabic Studying", description: "Track total time I spent studying Arabic in a week", frequency: "weekly", type: "duration", goal: "120 minutes", icon: "BookOpen" },
-        // Nutrition
-        { id: "habit-morning-eating", name: "Morning Eating", description: "Tracking eating habit, very very important for my diet", frequency: "daily", type: "options", goal: "Eat a non-junky breakfast", options: "skipped,healthy,junky", icon: "Carrot" },
-        { id: "habit-lunch-eating", name: "Lunch Eating", description: "Tracking eating habit, very very important for my diet", frequency: "daily", type: "options", goal: "Eat a non-junky lunch", options: "skipped,healthy,junky", icon: "Carrot" },
-        { id: "habit-dinner-eating", name: "Dinner Eating", description: "Tracking eating habit, very very important for my diet", frequency: "daily", type: "options", goal: "Eat a non-junky dinner", options: "skipped,healthy,junky", icon: "Carrot" },
-        { id: "habit-afternoon-snack", name: "Afternoon Snack", description: "Tracking eating habit, very very important for my diet", frequency: "daily", type: "options", goal: "Eat a non-junky snack", options: "skipped,healthy,junky", icon: "Carrot" },
-        // Fitness
-        { id: "habit-training-gym", name: "Gym Training", description: "Track weekly gym sessions", frequency: "weekly", type: "number", goal: "4 sessions", icon: "Dumbbell" },
-        { id: "habit-training-muay-thai", name: "Muay Thai Training", description: "Track weekly muay thai sessions", frequency: "weekly", type: "number", goal: "2 sessions", icon: "Dumbbell" },
-        { id: "habit-nutrition-supplements", name: "Nutrition Supplements", description: "Track daily supplement intake", frequency: "daily", type: "boolean", goal: "Take supplements", icon: "Leaf" },
-        { id: "habit-weight", name: "Weight Tracking", description: "Track my weight in kg daily", frequency: "daily", type: "number", goal: "1 entry", icon: "Dumbbell" },
-        // Self-improvement
-        { id: "habit-projects", name: "Work on projects", description: "Track time I spend on personal projects", frequency: "daily", type: "duration", goal: "60 minutes", icon: "FolderKanban" },
-        { id: "habit-smoking", name: "Smoking", description: "Track daily cigarette consumption", frequency: "daily", type: "number", goal: "5 cigarettes", icon: "Leaf" },
-        { id: "habit-reading", name: "Reading", description: "Track daily reading progress", frequency: "daily", type: "number", goal: "10 pages", icon: "BookOpen" },
-        { id: "habit-waking-up", name: "Waking Up", description: "Track daily wake up time", frequency: "daily", type: "time", goal: "07:00", icon: "Clock" },
-        { id: "habit-studying", name: "General Studying", description: "Track weekly study duration", frequency: "weekly", type: "duration", goal: "120 minutes", icon: "GraduationCap" },
-    ];
-
-    const batch = writeBatch(db);
-
-    habitsToSeed.forEach(habit => {
-        const { id, ...habitData } = habit;
-        const habitRef = doc(db, 'users', userId, 'habits', id);
-        batch.set(habitRef, {
-            ...habitData,
-            createdAt: Timestamp.now()
-        });
-    });
-
-    await batch.commit();
-    console.log("Database seeded successfully with initial habits.");
 };
