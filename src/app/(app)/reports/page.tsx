@@ -12,6 +12,9 @@ import {
   isSameMonth,
   isToday,
   getDate,
+  startOfWeek,
+  endOfWeek,
+  isWithinInterval,
 } from 'date-fns';
 import {
   getHabitsWithReportsForMonth,
@@ -38,7 +41,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { HabitIcon } from '@/components/habit-icon';
 
 
@@ -48,6 +51,7 @@ export default function ReportsPage() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isMonthsLoading, setIsMonthsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('calendar');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -59,6 +63,8 @@ export default function ReportsPage() {
         setAvailableMonths(monthStrings);
         if (monthStrings.length > 0) {
           setSelectedMonth(monthStrings[0]);
+        } else {
+          setIsLoading(false);
         }
       } catch (error) {
         console.error('Failed to fetch report months:', error);
@@ -76,6 +82,7 @@ export default function ReportsPage() {
 
   useEffect(() => {
     if (!selectedMonth) {
+      setHabits([]);
       setIsLoading(false);
       return;
     };
@@ -101,7 +108,7 @@ export default function ReportsPage() {
   }, [selectedMonth, toast]);
 
   const { calendarGrid, reportsByDate } = useMemo(() => {
-    if (!selectedMonth) return { calendarGrid: [], reportsByDate: new Map() };
+    if (!selectedMonth || activeTab !== 'calendar') return { calendarGrid: [], reportsByDate: new Map() };
 
     const monthDate = parse(selectedMonth, 'yyyy-MM', new Date());
     const monthStart = startOfMonth(monthDate);
@@ -125,7 +132,7 @@ export default function ReportsPage() {
     });
 
     return { calendarGrid: grid, reportsByDate: reportsMap };
-  }, [selectedMonth, habits]);
+  }, [selectedMonth, habits, activeTab]);
 
   const weeks = useMemo(() => {
     const weeksArray = [];
@@ -135,99 +142,203 @@ export default function ReportsPage() {
     return weeksArray;
   }, [calendarGrid]);
 
+  const { weeklyTableData, daysOfWeek } = useMemo(() => {
+    if (activeTab !== 'table' || isLoading) return { weeklyTableData: [], daysOfWeek: [] };
+
+    const today = new Date();
+    const weekStart = startOfWeek(today, { weekStartsOn: 0 });
+    const weekEnd = endOfWeek(today, { weekStartsOn: 0 });
+    const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
+
+    const tableData = new Map<string, { habit: Habit; reports: Map<string, string> }>();
+
+    for (const habit of habits) {
+      const reportsForWeek = habit.reports.filter(report =>
+        isWithinInterval(report.reportedAt, { start: weekStart, end: weekEnd })
+      );
+
+      if (reportsForWeek.length > 0) {
+        const habitRow = {
+          habit: habit,
+          reports: new Map<string, string>(),
+        };
+
+        reportsForWeek.forEach(report => {
+          const dayKey = format(report.reportedAt, 'yyyy-MM-dd');
+          if (habit.type === 'number' || habit.type === 'duration') {
+            const existingValue = Number(habitRow.reports.get(dayKey) || '0');
+            habitRow.reports.set(dayKey, String(existingValue + Number(report.value)));
+          } else {
+            habitRow.reports.set(dayKey, String(report.value));
+          }
+        });
+        tableData.set(habit.id, habitRow);
+      }
+    }
+    return { weeklyTableData: Array.from(tableData.values()), daysOfWeek: days };
+  }, [habits, activeTab, isLoading]);
+
   return (
     <div className="flex flex-col gap-6">
        <div className="flex items-center">
         <div>
             <h1 className="text-lg font-semibold md:text-2xl font-headline">
-                Monthly Report
+                Reports
             </h1>
             <p className="text-sm text-muted-foreground">
-                Review your habit history at a glance.
+                Review your habit history by month or for the current week.
             </p>
         </div>
         <div className="ml-auto flex items-center gap-2">
-            {isMonthsLoading ? (
-                <Skeleton className="h-10 w-48" />
-            ) : (
-                <Select value={selectedMonth} onValueChange={setSelectedMonth} disabled={availableMonths.length === 0}>
-                    <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Select a month" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {availableMonths.map(month => (
-                            <SelectItem key={month} value={month}>
-                                {format(parse(month, 'yyyy-MM', new Date()), 'MMMM yyyy')}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+            {activeTab === 'calendar' && (
+                isMonthsLoading ? (
+                    <Skeleton className="h-10 w-48" />
+                ) : (
+                    <Select value={selectedMonth} onValueChange={setSelectedMonth} disabled={availableMonths.length === 0}>
+                        <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Select a month" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {availableMonths.map(month => (
+                                <SelectItem key={month} value={month}>
+                                    {format(parse(month, 'yyyy-MM', new Date()), 'MMMM yyyy')}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                )
             )}
         </div>
       </div>
-      <Card>
-        <CardContent className="p-4 md:p-6">
-            {isLoading ? (
-                 <div className="grid grid-cols-7 gap-1">
-                    {Array.from({ length: 35 }).map((_, i) => (
-                        <Skeleton key={i} className="h-32 w-full" />
-                    ))}
-                </div>
-            ) : !selectedMonth ? (
-                <div className="text-center py-10">
-                    <p className="text-muted-foreground">No reports found. Start tracking your habits!</p>
-                </div>
-            ) : (
-                <Table className="border">
-                    <TableHeader>
-                        <TableRow>
-                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                                <TableHead key={day} className="text-center h-10">{day}</TableHead>
+
+      <Tabs defaultValue="calendar" onValueChange={setActiveTab}>
+        <div className="flex justify-end">
+            <TabsList className="grid w-[280px] grid-cols-2">
+                <TabsTrigger value="calendar">Monthly Calendar</TabsTrigger>
+                <TabsTrigger value="table">Current Week Table</TabsTrigger>
+            </TabsList>
+        </div>
+
+        <TabsContent value="calendar" className="mt-4">
+            <Card>
+                <CardContent className="p-4 md:p-6">
+                    {isLoading ? (
+                        <div className="grid grid-cols-7 gap-1">
+                            {Array.from({ length: 35 }).map((_, i) => (
+                                <Skeleton key={i} className="h-32 w-full" />
                             ))}
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {weeks.map((week, weekIndex) => (
-                            <TableRow key={weekIndex}>
-                                {week.map((day, dayIndex) => {
-                                    const dayKey = day ? format(day, 'yyyy-MM-dd') : '';
-                                    const reportsForDay = reportsByDate.get(dayKey) || [];
-                                    return (
-                                        <TableCell key={dayIndex} className={cn("h-40 p-1 align-top relative border", day && !isSameMonth(day, parse(selectedMonth, 'yyyy-MM', new Date())) && "bg-muted/50")}>
-                                            {day && (
-                                                <>
-                                                    <div className={cn("text-xs text-right p-1", isToday(day) && "bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center font-bold")}>
-                                                        {getDate(day)}
-                                                    </div>
-                                                    <div className="space-y-1 mt-1">
-                                                        {reportsForDay.map(({ habit, report }) => (
-                                                            <div key={report.id} className="p-1 rounded-md bg-secondary/50 text-secondary-foreground text-xs leading-tight">
-                                                                <div className="flex items-start gap-1.5">
-                                                                    <HabitIcon name={habit.icon} className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                                                                    <div>
-                                                                        <p className="font-medium">{habit.name}</p>
-                                                                        <p className="text-muted-foreground">Value: {report.value}</p>
-                                                                    </div>
-                                                                </div>
+                        </div>
+                    ) : !selectedMonth ? (
+                        <div className="text-center py-10">
+                            <p className="text-muted-foreground">No reports found. Start tracking your habits!</p>
+                        </div>
+                    ) : (
+                        <Table className="border">
+                            <TableHeader>
+                                <TableRow>
+                                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                                        <TableHead key={day} className="text-center h-10">{day}</TableHead>
+                                    ))}
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {weeks.map((week, weekIndex) => (
+                                    <TableRow key={weekIndex}>
+                                        {week.map((day, dayIndex) => {
+                                            const dayKey = day ? format(day, 'yyyy-MM-dd') : '';
+                                            const reportsForDay = reportsByDate.get(dayKey) || [];
+                                            return (
+                                                <TableCell key={dayIndex} className={cn("h-40 p-1 align-top relative border", day && !isSameMonth(day, parse(selectedMonth, 'yyyy-MM', new Date())) && "bg-muted/50")}>
+                                                    {day && (
+                                                        <>
+                                                            <div className={cn("text-xs text-right p-1", isToday(day) && "bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center font-bold")}>
+                                                                {getDate(day)}
                                                             </div>
-                                                        ))}
-                                                    </div>
-                                                </>
-                                            )}
-                                        </TableCell>
-                                    )
-                                })}
-                                {/* Fill remaining cells if week is not full */}
-                                {week.length < 7 && Array.from({ length: 7 - week.length }).map((_, i) => (
-                                    <TableCell key={`empty-${i}`} className="border"></TableCell>
+                                                            <div className="space-y-1 mt-1">
+                                                                {reportsForDay.map(({ habit, report }) => (
+                                                                    <div key={report.id} className="p-1 rounded-md bg-secondary/50 text-secondary-foreground text-xs leading-tight">
+                                                                        <div className="flex items-start gap-1.5">
+                                                                            <HabitIcon name={habit.icon} className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                                                                            <div>
+                                                                                <p className="font-medium">{habit.name}</p>
+                                                                                <p className="text-muted-foreground">Value: {report.value}</p>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </TableCell>
+                                            )
+                                        })}
+                                        {week.length < 7 && Array.from({ length: 7 - week.length }).map((_, i) => (
+                                            <TableCell key={`empty-${i}`} className="border"></TableCell>
+                                        ))}
+                                    </TableRow>
                                 ))}
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            )}
-        </CardContent>
-      </Card>
+                            </TableBody>
+                        </Table>
+                    )}
+                </CardContent>
+            </Card>
+        </TabsContent>
+
+        <TabsContent value="table" className="mt-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Current Week's Reports</CardTitle>
+                    <CardDescription>
+                        A summary of your reports for the current week, starting on Sunday.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {isLoading ? (
+                        <div className="space-y-4">
+                            {Array.from({ length: 4 }).map((_, i) => (
+                                <div key={i} className="flex items-center space-x-4 py-2">
+                                    <Skeleton className="h-8 w-32" />
+                                    <Skeleton className="h-8 flex-1" />
+                                </div>
+                            ))}
+                        </div>
+                    ) : weeklyTableData.length > 0 ? (
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="w-[200px]">Habit</TableHead>
+                                    {daysOfWeek.map(day => (
+                                        <TableHead key={day.toISOString()} className="text-center">{format(day, 'EEE')}</TableHead>
+                                    ))}
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {weeklyTableData.map(({ habit, reports }) => (
+                                    <TableRow key={habit.id}>
+                                        <TableCell className="font-medium">
+                                            <div className="flex items-center gap-2">
+                                                <HabitIcon name={habit.icon} className="h-4 w-4 text-muted-foreground" />
+                                                <span>{habit.name}</span>
+                                            </div>
+                                        </TableCell>
+                                        {daysOfWeek.map(day => {
+                                            const dayKey = format(day, 'yyyy-MM-dd');
+                                            const value = reports.get(dayKey);
+                                            return <TableCell key={day.toISOString()} className="text-center">{value || '—'}</TableCell>
+                                        })}
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    ) : (
+                        <div className="text-center py-10">
+                            <p className="text-muted-foreground">No reports found for the current week.</p>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
