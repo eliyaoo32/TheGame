@@ -40,6 +40,7 @@ import { MoreHorizontal, PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getHabits, addHabit, updateHabit, deleteHabit, getCategories, addCategory, updateCategory, deleteCategory } from '@/services/habits';
 import { Skeleton } from '@/components/ui/skeleton';
+import { HabitIcon } from '@/components/habit-icon';
 
 export default function ManageHabitsPage() {
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -137,7 +138,7 @@ export default function ManageHabitsPage() {
         toast({ title: 'Category added!', description: `"${savedCategoryData.name}" has been saved.` });
       }
       fetchData(); // Refetch all data
-    } catch (error) {
+    } catch (error)
       console.error("Failed to save category:", error);
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to save category.' });
     }
@@ -197,7 +198,12 @@ export default function ManageHabitsPage() {
                   {loading ? (
                     Array.from({ length: 4 }).map((_, i) => (
                       <TableRow key={i}>
-                        <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Skeleton className="h-4 w-4" />
+                            <Skeleton className="h-5 w-28" />
+                          </div>
+                        </TableCell>
                         <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                         <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
                         <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
@@ -206,7 +212,12 @@ export default function ManageHabitsPage() {
                   ) : habits.length > 0 ? (
                     habits.map(habit => (
                       <TableRow key={habit.id}>
-                        <TableCell className="font-medium">{habit.name}</TableCell>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <HabitIcon name={habit.icon} className="h-4 w-4 text-muted-foreground" />
+                            <span>{habit.name}</span>
+                          </div>
+                        </TableCell>
                         <TableCell>{habit.categoryId ? categoryMap.get(habit.categoryId) : '—'}</TableCell>
                         <TableCell className="hidden md:table-cell capitalize">{habit.frequency}</TableCell>
                         <TableCell className="text-right">
