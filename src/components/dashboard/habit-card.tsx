@@ -88,7 +88,10 @@ export function HabitCard({ habit, onReport, onRestart, isUpdating }: HabitCardP
             <HabitIcon name={habit.icon} className="h-6 w-6 text-muted-foreground" />
             <CardTitle className="text-lg font-medium">{habit.name}</CardTitle>
           </div>
-          {habit.completed && <Badge variant="secondary">Done!</Badge>}
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="capitalize">{habit.frequency}</Badge>
+            {habit.completed && <Badge variant="secondary">Done!</Badge>}
+          </div>
         </div>
         <CardDescription>{getStatusText()}</CardDescription>
       </CardHeader>
