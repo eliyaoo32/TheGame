@@ -28,7 +28,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { HabitIcon } from '@/components/habit-icon';
 
 interface AddHabitDialogProps {
-  onSave: (habit: Omit<Habit, 'id' | 'progress' | 'completed' | 'feedback' | 'lastReportedValue'> & { id?: string }) => void;
+  onSave: (habit: Omit<Habit, 'id' | 'progress' | 'completed' | 'reports' | 'lastReportedValue'> & { id?: string }) => void;
   habitToEdit?: Habit;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -105,14 +105,14 @@ export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange }: AddH
   
   const goalFieldInfo = {
     boolean: {
-        label: 'Task Description',
-        placeholder: 'e.g. Meditate for 10 minutes',
+        label: 'Goal Description',
+        placeholder: 'e.g., Meditate for 10 minutes',
         description: 'A simple "Done/Not Done" habit. The goal is the task itself.'
     },
     time: {
-        label: 'Goal (Time)',
-        placeholder: 'e.g., 09:00',
-        description: 'The target time to complete the habit (e.g. 18:00).'
+        label: 'Goal (Target Time)',
+        placeholder: 'e.g., 18:00',
+        description: 'The target time to complete the habit.'
     },
     duration: {
         label: 'Goal (Minutes)',
@@ -126,7 +126,7 @@ export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange }: AddH
     },
      options: {
         label: 'Goal',
-        placeholder: 'e.g., Eat a healthy breakfast',
+        placeholder: 'e.g., Eat a non-junky breakfast',
         description: 'Describe the goal you want to achieve through your choices.'
     }
   };

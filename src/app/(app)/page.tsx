@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback, useTransition } from 'react';
 import { HabitCard } from '@/components/dashboard/habit-card';
 import { ChatReporter } from '@/components/dashboard/chat-reporter';
-import type { Habit } from '@/lib/types';
-import { getHabits, updateHabit } from '@/services/habits';
+import type { Habit, HabitReport } from '@/lib/types';
+import { getHabits, addHabitReport, deleteHabitReportsForPeriod } from '@/services/habits';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ReportProgressDialog } from '@/components/dashboard/report-progress-dialog';
@@ -52,47 +52,48 @@ export default function DashboardPage() {
   const handleSaveProgress = (habit: Habit, value: any) => {
     setUpdatingHabitId(habit.id);
     startTransition(async () => {
-      const originalHabit = { ...habit };
-      let progress = habit.progress || 0;
-      let completed = habit.completed;
+      // Create a temporary new report for optimistic update
+      const newReport: HabitReport = {
+        id: `temp-${Date.now()}`,
+        value: value,
+        reportedAt: new Date(),
+      };
+
+      const updatedReports = [...habit.reports, newReport];
       
-      const dataToUpdate: Partial<Omit<Habit, 'id'>> = {};
-
-      let goalValue = 1;
-
+      let newProgress = 0;
       if (habit.type === 'number' || habit.type === 'duration') {
-        goalValue = parseInt(habit.goal.match(/\d+/)?.[0] || '1', 10);
-        const reportedValue = Number(value);
-        if (!isNaN(reportedValue)) {
-          progress += reportedValue;
-        }
-      } else if (habit.type === 'options') {
-        progress = 1;
-        dataToUpdate.lastReportedValue = String(value);
-      } else if (habit.type === 'time') {
-        progress = goalValue;
-        dataToUpdate.lastReportedValue = String(value);
-      } else { // boolean
-        progress = goalValue;
+        newProgress = updatedReports.reduce((sum, report) => sum + Number(report.value || 0), 0);
+      } else { // boolean, time, options
+        newProgress = updatedReports.length;
       }
 
-      completed = progress >= goalValue;
-      dataToUpdate.progress = progress;
-      dataToUpdate.completed = completed;
+      const goalValue = (habit.type === 'boolean' || habit.type === 'time' || habit.type === 'options')
+          ? 1
+          : parseInt(habit.goal.match(/\d+/)?.[0] || '1', 10);
       
-      // Optimistic update
-      const updatedHabit: Habit = { ...habit, ...dataToUpdate };
-      setHabits((prev) => prev.map((h) => (h.id === habit.id ? updatedHabit : h)));
+      const newCompleted = newProgress >= goalValue;
+
+      const optimisticallyUpdatedHabit: Habit = {
+        ...habit,
+        reports: updatedReports,
+        progress: newProgress,
+        completed: newCompleted,
+        lastReportedValue: String(value),
+      };
+      
+      // Optimistically update the UI
+      setHabits((prev) => prev.map((h) => (h.id === habit.id ? optimisticallyUpdatedHabit : h)));
       setReportingHabit(null);
       
       try {
-        await updateHabit(habit.id, dataToUpdate);
+        await addHabitReport(habit.id, value);
         toast({ title: "Progress saved!", description: `Your progress for "${habit.name}" has been updated.`});
       } catch (error) {
          console.error("Failed to update habit:", error);
          toast({ variant: 'destructive', title: 'Error', description: 'Could not save your progress.' });
-         // Revert optimistic update
-         setHabits((prev) => prev.map((h) => (h.id === originalHabit.id ? originalHabit : h)));
+         // Revert optimistic update by refetching everything
+         fetchHabits();
       } finally {
         setUpdatingHabitId(null);
       }
@@ -104,12 +105,12 @@ export default function DashboardPage() {
     startTransition(async () => {
       const originalHabit = { ...habit };
       // Optimistically update the UI
-      const updatedHabit = { ...habit, progress: 0, completed: false, feedback: undefined, lastReportedValue: undefined };
+      const updatedHabit = { ...habit, reports: [], progress: 0, completed: false, lastReportedValue: undefined };
       setHabits((prev) => prev.map((h) => (h.id === habit.id ? updatedHabit : h)));
 
       try {
-        await updateHabit(habit.id, { progress: 0, completed: false, feedback: '', lastReportedValue: '' });
-        toast({ title: "Habit restarted!", description: `Progress for "${habit.name}" has been reset.` });
+        await deleteHabitReportsForPeriod(habit.id, habit.frequency);
+        toast({ title: "Habit restarted!", description: `Progress for "${habit.name}" has been reset for this period.` });
       } catch (error) {
         console.error("Failed to restart habit:", error);
         toast({ variant: 'destructive', title: 'Error', description: 'Could not restart habit.' });

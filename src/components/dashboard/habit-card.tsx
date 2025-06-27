@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { RotateCcw, Sparkles } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 import { HabitIcon } from '@/components/habit-icon';
@@ -38,7 +38,7 @@ export function HabitCard({ habit, onReport, onRestart, isUpdating }: HabitCardP
   };
 
   const getStatusText = () => {
-    if (habit.completed && habit.lastReportedValue) {
+    if (habit.completed && habit.lastReportedValue && habit.type === 'options') {
       return `Last choice: ${habit.lastReportedValue}`;
     }
     
@@ -61,7 +61,9 @@ export function HabitCard({ habit, onReport, onRestart, isUpdating }: HabitCardP
 
   const getProgressPercentage = () => {
     if (habit.type === 'boolean' || habit.type === 'time' || habit.type === 'options') {
-      return habit.completed ? 100 : 0;
+        const goalValue = 1;
+        const percentage = ((habit.progress || 0) / goalValue) * 100;
+        return Math.min(100, percentage);
     }
     const goalValue = parseInt(habit.goal.match(/\d+/)?.[0] || '1', 10);
     if (goalValue <= 0) return 0;
@@ -69,8 +71,6 @@ export function HabitCard({ habit, onReport, onRestart, isUpdating }: HabitCardP
     return Math.min(100, percentage);
   };
   
-  const isCompletableOnce = habit.type === 'boolean' || habit.type === 'time' || habit.type === 'options';
-
 
   return (
     <Card className={cn("flex flex-col transition-shadow duration-200 hover:shadow-lg", habit.completed && "bg-muted/60")}>
@@ -86,20 +86,14 @@ export function HabitCard({ habit, onReport, onRestart, isUpdating }: HabitCardP
       </CardHeader>
       <CardContent className="flex-grow">
         <Progress value={getProgressPercentage()} aria-label={`${habit.name} progress`} />
-        {habit.feedback && (
-          <div className="mt-4 flex items-start gap-2 text-sm text-primary p-3 bg-primary/10 rounded-lg">
-            <Sparkles className="h-4 w-4 shrink-0 mt-0.5" />
-            <p>{habit.feedback}</p>
-          </div>
-        )}
       </CardContent>
       <CardFooter className="gap-2">
         <Button
           onClick={handleReport}
-          disabled={(isCompletableOnce && habit.completed) || isUpdating}
+          disabled={isUpdating}
           className="w-full"
         >
-          {isUpdating ? 'Saving...' : (habit.type === 'number' || habit.type === 'duration') ? 'Report More' : 'Report Progress'}
+          {isUpdating ? 'Saving...' : 'Report Progress'}
         </Button>
         {habit.progress > 0 && (
             <Button

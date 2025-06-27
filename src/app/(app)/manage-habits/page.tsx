@@ -70,13 +70,14 @@ export default function ManageHabitsPage() {
     fetchHabits();
   }, [fetchHabits]);
 
-  const handleSaveHabit = async (savedHabitData: Omit<Habit, 'id' | 'progress' | 'completed' | 'feedback' | 'lastReportedValue'> & { id?: string }) => {
+  const handleSaveHabit = async (savedHabitData: Omit<Habit, 'id' | 'progress' | 'completed' | 'reports' | 'lastReportedValue'> & { id?: string }) => {
     const originalHabits = habits;
 
     try {
       if (savedHabitData.id) {
         // Optimistic Update
-        const updatedHabit = { ...habits.find(h => h.id === savedHabitData.id)!, ...savedHabitData } as Habit;
+        const currentHabit = habits.find(h => h.id === savedHabitData.id)!;
+        const updatedHabit: Habit = { ...currentHabit, ...savedHabitData };
         setHabits(habits.map(h => (h.id === savedHabitData.id ? updatedHabit : h)));
         
         const { id, ...dataToUpdate } = savedHabitData;
@@ -93,6 +94,7 @@ export default function ManageHabitsPage() {
             id: newId,
             progress: 0,
             completed: false,
+            reports: [],
             ...dataToAdd,
         };
         setHabits(currentHabits => [...currentHabits, newHabit]);
