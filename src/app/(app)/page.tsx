@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useCallback, useTransition, useMemo } from 'react';
 import { HabitCard } from '@/components/dashboard/habit-card';
-import { ChatReporter } from '@/components/dashboard/chat-reporter';
 import type { Habit, HabitReport } from '@/lib/types';
 import { getHabits, addHabitReport, deleteHabitReportsForPeriod } from '@/services/habits';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ReportProgressDialog } from '@/components/dashboard/report-progress-dialog';
+import { AIAgentBar } from '@/components/dashboard/ai-agent-bar';
 
 export default function DashboardPage() {
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -88,6 +88,7 @@ export default function DashboardPage() {
       
       try {
         await addHabitReport(habit.id, value);
+        await fetchHabits(); // Refetch to get the latest state from the server
         toast({ title: "Progress saved!", description: `Your progress for "${habit.name}" has been updated.`});
       } catch (error) {
          console.error("Failed to update habit:", error);
@@ -149,6 +150,7 @@ export default function DashboardPage() {
   return (
     <>
       <div className="flex flex-col gap-6">
+        <AIAgentBar onSuccess={fetchHabits} />
         <div className="flex items-center">
           <div>
             <h1 className="text-lg font-semibold md:text-2xl font-headline">
@@ -192,7 +194,6 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
-      <ChatReporter />
 
       <ReportProgressDialog
         habit={reportingHabit}
