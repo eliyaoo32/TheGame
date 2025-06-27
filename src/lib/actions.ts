@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 const getHabitFeedbackSchema = z.object({
   habitName: z.string(),
-  description: z.string(),
+  description: z.string().optional(),
   habitType: z.enum(['duration', 'time', 'boolean', 'number', 'options']),
   habitFrequency: z.enum(['daily', 'weekly']),
   habitGoal: z.string(),
@@ -17,7 +17,7 @@ export async function getHabitFeedback(input: z.infer<typeof getHabitFeedbackSch
   try {
     const validatedInput: AiHabitFeedbackInput = {
       habitName: input.habitName,
-      habitDescription: input.description,
+      habitDescription: input.description || 'No description provided.',
       habitType: input.habitType,
       habitFrequency: input.habitFrequency,
       habitGoal: input.habitGoal,
