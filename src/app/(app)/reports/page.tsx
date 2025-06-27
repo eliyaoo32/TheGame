@@ -44,6 +44,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { HabitIcon } from '@/components/habit-icon';
 
+type WeeklyTableItem =
+  | { isHeader: true; categoryName: string }
+  | { isHeader: false; habit: Habit; reports: Map<string, string> };
 
 export default function ReportsPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>('');
@@ -180,26 +183,56 @@ export default function ReportsPage() {
     const weekEnd = endOfWeek(today, { weekStartsOn: 0 });
     const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
 
-    const tableData = new Map<string, { habit: Habit; reports: Map<string, string> }>();
-
-    for (const habit of habits) {
-      const habitRow = {
-        habit: habit,
-        reports: new Map<string, string>(),
-      };
-
-      habit.reports.forEach(report => {
-        const dayKey = format(report.reportedAt, 'yyyy-MM-dd');
-        if (habit.type === 'number' || habit.type === 'duration') {
-          const existingValue = Number(habitRow.reports.get(dayKey) || '0');
-          habitRow.reports.set(dayKey, String(existingValue + Number(report.value)));
-        } else {
-          habitRow.reports.set(dayKey, String(report.value));
+    // 1. Process reports for each habit
+    const processedHabits = habits.map(habit => {
+        const reportsMap = new Map<string, string>();
+        habit.reports.forEach(report => {
+            const dayKey = format(report.reportedAt, 'yyyy-MM-dd');
+            if (habit.type === 'number' || habit.type === 'duration') {
+                const existingValue = Number(reportsMap.get(dayKey) || '0');
+                reportsMap.set(dayKey, String(existingValue + Number(report.value)));
+            } else {
+                reportsMap.set(dayKey, String(report.value));
+            }
+        });
+        return {
+            habit: habit,
+            reports: reportsMap
+        };
+    });
+    
+    // 2. Group by category
+    const groupedData = processedHabits.reduce((acc, current) => {
+        const category = current.habit.categoryName || 'Uncategorized';
+        if (!acc[category]) {
+            acc[category] = [];
         }
-      });
-      tableData.set(habit.id, habitRow);
-    }
-    return { weeklyTableData: Array.from(tableData.values()), daysOfWeek: days };
+        acc[category].push(current);
+        return acc;
+    }, {} as Record<string, typeof processedHabits>);
+
+    // 3. Sort categories and habits, then flatten into a list for rendering
+    const sortedCategories = Object.keys(groupedData).sort((a, b) => {
+        if (a === 'Uncategorized') return 1;
+        if (b === 'Uncategorized') return -1;
+        return a.localeCompare(b);
+    });
+
+    const finalTableData: WeeklyTableItem[] = [];
+    
+    sortedCategories.forEach(categoryName => {
+        finalTableData.push({ isHeader: true, categoryName: categoryName });
+
+        const habitsInCategory = groupedData[categoryName].sort((a, b) =>
+            a.habit.name.localeCompare(b.habit.name)
+        );
+
+        habitsInCategory.forEach(item => {
+            finalTableData.push({ isHeader: false, habit: item.habit, reports: item.reports });
+        });
+    });
+
+    return { weeklyTableData: finalTableData, daysOfWeek: days };
   }, [habits, activeTab, isLoading]);
 
   return (
@@ -335,21 +368,31 @@ export default function ReportsPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {weeklyTableData.map(({ habit, reports }) => (
-                                    <TableRow key={habit.id}>
-                                        <TableCell className="font-medium">
-                                            <div className="flex items-center gap-2">
-                                                <HabitIcon name={habit.icon} className="h-4 w-4 text-muted-foreground" />
-                                                <span>{habit.name}</span>
-                                            </div>
-                                        </TableCell>
-                                        {daysOfWeek.map(day => {
-                                            const dayKey = format(day, 'yyyy-MM-dd');
-                                            const value = reports.get(dayKey);
-                                            return <TableCell key={day.toISOString()} className="text-center">{value || '—'}</TableCell>
-                                        })}
-                                    </TableRow>
-                                ))}
+                                {weeklyTableData.map((item) =>
+                                    item.isHeader ? (
+                                        <TableRow key={`header-${item.categoryName}`} className="bg-muted/50 hover:bg-muted/50">
+                                            <TableCell className="font-semibold">{item.categoryName}</TableCell>
+                                            {/* Render empty cells for the rest of the columns */}
+                                            {daysOfWeek.map(day => (
+                                                <TableCell key={`empty-${item.categoryName}-${day.toISOString()}`}></TableCell>
+                                            ))}
+                                        </TableRow>
+                                    ) : (
+                                        <TableRow key={item.habit.id}>
+                                            <TableCell className="font-medium">
+                                                <div className="flex items-center gap-2">
+                                                    <HabitIcon name={item.habit.icon} className="h-4 w-4 text-muted-foreground" />
+                                                    <span>{item.habit.name}</span>
+                                                </div>
+                                            </TableCell>
+                                            {daysOfWeek.map(day => {
+                                                const dayKey = format(day, 'yyyy-MM-dd');
+                                                const value = item.reports.get(dayKey);
+                                                return <TableCell key={day.toISOString()} className="text-center">{value || '—'}</TableCell>
+                                            })}
+                                        </TableRow>
+                                    )
+                                )}
                             </TableBody>
                         </Table>
                     ) : (
