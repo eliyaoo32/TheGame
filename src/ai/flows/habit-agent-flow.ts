@@ -5,7 +5,7 @@
  * - habitAgent - A function that processes natural language commands to manage habits.
  */
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit/zod';
+import { z } from 'zod';
 import * as habitService from '@/services/habits';
 
 // Schemas for Tools
