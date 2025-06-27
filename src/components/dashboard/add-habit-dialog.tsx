@@ -25,7 +25,6 @@ import {
 } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/hooks/use-toast';
 import { HabitIcon } from '@/components/habit-icon';
 
 interface AddHabitDialogProps {
@@ -49,7 +48,6 @@ type AddHabitFormValues = z.infer<typeof addHabitSchema>;
 const iconNames = ['Dumbbell', 'BookOpen', 'Leaf', 'Target', 'Clock'];
 
 export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange }: AddHabitDialogProps) {
-  const { toast } = useToast();
   const isEditMode = !!habitToEdit;
 
   const form = useForm<AddHabitFormValues>({
@@ -87,10 +85,6 @@ export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange }: AddH
       frequency: data.frequency as HabitFrequency
     });
     onOpenChange(false);
-    toast({
-      title: isEditMode ? 'Habit updated!' : 'Habit added!',
-      description: `"${data.name}" has been saved.`,
-    });
   };
 
   return (

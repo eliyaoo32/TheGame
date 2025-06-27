@@ -10,6 +10,14 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
+// Check for missing config and provide a clear error message.
+if (!firebaseConfig.projectId || !firebaseConfig.apiKey) {
+  // This error will be caught by the app and displayed to the user.
+  // It's crucial for debugging setup issues.
+  throw new Error('Firebase config is missing or incomplete. Please create a .env file with your Firebase project configuration. See the .env file for an example and required values. Remember to restart your development server after creating the .env file.');
+}
+
+
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);

@@ -58,8 +58,8 @@ export default function ManageHabitsPage() {
       console.error("Failed to fetch habits:", error);
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: 'Could not fetch your habits. Please try again later.',
+        title: 'Error fetching habits',
+        description: 'Could not fetch your habits. Please ensure your Firebase configuration in .env is correct and check your Firestore security rules.',
       });
     } finally {
       setLoading(false);
@@ -71,8 +71,14 @@ export default function ManageHabitsPage() {
   }, [fetchHabits]);
 
   const handleSaveHabit = async (savedHabitData: Omit<Habit, 'id' | 'progress' | 'completed' | 'feedback'> & { id?: string }) => {
+    const originalHabits = habits;
+
     try {
       if (savedHabitData.id) {
+        // Optimistic Update
+        const updatedHabit = { ...habits.find(h => h.id === savedHabitData.id)!, ...savedHabitData } as Habit;
+        setHabits(habits.map(h => (h.id === savedHabitData.id ? updatedHabit : h)));
+        
         const { id, ...dataToUpdate } = savedHabitData;
         await updateHabit(id, dataToUpdate);
         toast({
@@ -80,16 +86,24 @@ export default function ManageHabitsPage() {
             description: `"${savedHabitData.name}" has been saved.`,
         });
       } else {
+        // Add
         const { id, ...dataToAdd } = savedHabitData;
-        await addHabit(dataToAdd);
+        const newId = await addHabit(dataToAdd);
+        const newHabit: Habit = {
+            id: newId,
+            progress: 0,
+            completed: false,
+            ...dataToAdd,
+        };
+        setHabits(currentHabits => [...currentHabits, newHabit]);
         toast({
             title: 'Habit added!',
             description: `"${savedHabitData.name}" has been saved.`,
         });
       }
-      await fetchHabits();
     } catch (error) {
         console.error("Failed to save habit:", error);
+        setHabits(originalHabits); // Revert on error
         toast({
           variant: 'destructive',
           title: 'Error',
@@ -110,23 +124,29 @@ export default function ManageHabitsPage() {
 
   const handleDeleteHabit = async () => {
     if (habitToDelete) {
+      const habitIdToDelete = habitToDelete.id;
+      const originalHabits = habits;
+      const habitName = habitToDelete.name;
+
+      // Optimistic delete
+      setHabits(habits.filter(h => h.id !== habitIdToDelete));
+      setDeleteDialogOpen(false);
+      setHabitToDelete(null);
+
       try {
-        await deleteHabit(habitToDelete.id);
+        await deleteHabit(habitIdToDelete);
         toast({
           title: 'Habit deleted',
-          description: `"${habitToDelete.name}" has been removed.`,
+          description: `"${habitName}" has been removed.`,
         });
-        await fetchHabits();
       } catch (error) {
         console.error("Failed to delete habit:", error);
+        setHabits(originalHabits); // Revert on error
         toast({
           variant: 'destructive',
           title: 'Error',
           description: 'Failed to delete habit. Please try again.',
         });
-      } finally {
-        setHabitToDelete(null);
-        setDeleteDialogOpen(false);
       }
     }
   };
