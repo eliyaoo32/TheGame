@@ -5,9 +5,8 @@ import { usePathname } from 'next/navigation';
 import { Home, Settings, BarChartHorizontal } from 'lucide-react';
 import { Logo } from '@/components/icons';
 import { cn } from '@/lib/utils';
-import { Button } from './ui/button';
 
-export function AppSidebar() {
+export function AppSidebar({ className }: { className?: string }) {
   const pathname = usePathname();
   
   const navItems = [
@@ -17,7 +16,7 @@ export function AppSidebar() {
   ];
 
   return (
-    <div className="hidden border-r bg-muted/40 md:block">
+    <div className={cn("border-r bg-muted/40", className)}>
       <div className="flex h-full max-h-screen flex-col gap-2">
         <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
           <Link href="/" className="flex items-center gap-2 font-semibold font-headline">
