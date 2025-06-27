@@ -38,25 +38,33 @@ export function HabitCard({ habit, onReport, onRestart, isUpdating }: HabitCardP
   };
 
   const getStatusText = () => {
-    if (habit.completed && habit.lastReportedValue && habit.type === 'options') {
-      return `Last choice: ${habit.lastReportedValue}`;
+    switch (habit.type) {
+      case 'time':
+        if (habit.completed && habit.lastReportedValue) {
+          return `Goal: ${habit.goal} | Actual: ${habit.lastReportedValue}`;
+        }
+        return `Goal: ${habit.goal}`;
+      case 'options':
+        if (habit.completed && habit.lastReportedValue) {
+          return `Last choice: ${habit.lastReportedValue}`;
+        }
+        return `Goal: ${habit.goal}`;
+      case 'boolean':
+        return `Goal: ${habit.goal}`;
+      case 'number':
+      case 'duration': {
+        const goalParts = habit.goal.match(/(\d+)\s*(.*)/);
+        if (!goalParts) {
+          return `Goal: ${habit.goal}`;
+        }
+        const goalValue = parseInt(goalParts[1], 10);
+        const unit = goalParts[2] || '';
+        const currentValue = habit.progress || 0;
+        return `Status: ${currentValue} / ${goalValue} ${unit.trim()}`;
+      }
+      default:
+        return `Goal: ${habit.goal}`;
     }
-    
-    if (habit.type === 'boolean' || habit.type === 'time' || habit.type === 'options') {
-      return `Goal: ${habit.goal}`;
-    }
-
-    const goalParts = habit.goal.match(/(\d+)\s*(.*)/);
-    if (!goalParts) {
-      return `Goal: ${habit.goal}`;
-    }
-
-    const goalValue = parseInt(goalParts[1], 10);
-    const unit = goalParts[2] || '';
-
-    const currentValue = habit.progress || 0;
-
-    return `Status: ${currentValue} / ${goalValue} ${unit.trim()}`;
   };
 
   const getProgressPercentage = () => {
