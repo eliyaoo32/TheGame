@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Habit } from '@/lib/types';
@@ -89,7 +90,7 @@ export function HabitCard({ habit, onReport, onRestart, isUpdating }: HabitCardP
             <CardTitle className="text-lg font-medium">{habit.name}</CardTitle>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="capitalize">{habit.frequency}</Badge>
+            <Badge variant={habit.frequency === 'daily' ? 'secondary' : 'outline'} className="capitalize">{habit.frequency}</Badge>
             {habit.completed && <Badge variant="secondary">Done!</Badge>}
           </div>
         </div>
