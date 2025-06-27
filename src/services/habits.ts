@@ -1,3 +1,4 @@
+
 import {
   collection,
   addDoc,
@@ -14,7 +15,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Habit, HabitFrequency, HabitReport } from '@/lib/types';
-import { startOfDay, startOfWeek } from 'date-fns';
+import { startOfDay, startOfWeek, startOfMonth, endOfMonth, format } from 'date-fns';
 
 // Hardcoded user ID for now, until we have authentication
 const userId = 'test-user';
@@ -100,7 +101,7 @@ export const getHabits = async (): Promise<Habit[]> => {
 };
 
 
-export const addHabit = async (habitData: Omit<Habit, 'id' | 'progress' | 'completed' | 'reports' | 'lastReportedValue'>) => {
+export const addHabit = async (habitData: Omit<Habit, 'id' | 'progress' | 'completed' | 'reports' | 'lastReportedValue' | 'options'> & { options?: string }) => {
   const newHabit = {
     ...habitData,
     createdAt: Timestamp.now(),
@@ -121,7 +122,16 @@ export const addHabitReport = async (habitId: string, value: any) => {
 
 export const updateHabit = async (habitId: string, habitData: Partial<Omit<Habit, 'id' | 'progress' | 'completed' | 'reports' | 'lastReportedValue'>>) => {
   const habitDoc = doc(db, 'users', userId, 'habits', habitId);
-  await updateDoc(habitDoc, { ...habitData });
+  
+  // Construct an update object, removing any undefined values
+  const updateData: { [key: string]: any } = {};
+  for (const key in habitData) {
+    if ((habitData as any)[key] !== undefined) {
+      updateData[key] = (habitData as any)[key];
+    }
+  }
+
+  await updateDoc(habitDoc, updateData);
 };
 
 export const deleteHabit = async (habitId: string) => {
@@ -154,4 +164,75 @@ export const deleteHabitReportsForPeriod = async (habitId: string, frequency: Ha
   });
 
   await batch.commit();
+};
+
+export const getHabitsWithReportsForMonth = async (date: Date): Promise<Habit[]> => {
+    try {
+        const habitsSnapshot = await getDocs(query(habitsCollectionRef));
+        const habitsData = habitsSnapshot.docs.map(mapDocToHabit);
+
+        const monthStart = startOfMonth(date);
+        const monthEnd = endOfMonth(date);
+
+        const habitsWithReports = await Promise.all(
+            habitsData.map(async (habit) => {
+            const reportsCollectionRef = collection(db, 'users', userId, 'habits', habit.id, 'reports');
+            const reportsQuery = query(
+                reportsCollectionRef,
+                where('reportedAt', '>=', monthStart),
+                where('reportedAt', '<=', monthEnd)
+            );
+            const reportsSnapshot = await getDocs(reportsQuery);
+
+            const reports: HabitReport[] = reportsSnapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    value: data.value,
+                    reportedAt: (data.reportedAt as Timestamp).toDate(),
+                };
+            }).sort((a, b) => a.reportedAt.getTime() - b.reportedAt.getTime());
+
+            return {
+                ...habit,
+                reports,
+                progress: 0,
+                completed: false,
+            } as Habit;
+            })
+        );
+        return habitsWithReports.filter(h => h.reports.length > 0);
+
+    } catch (error) {
+        console.error("Error fetching habits for month: ", error);
+        if (error instanceof Error && error.message.includes('permission-denied')) {
+            console.error("Firestore permission denied.");
+        }
+        return [];
+    }
+};
+
+export const getUniqueReportMonths = async (): Promise<Date[]> => {
+    const habitsSnapshot = await getDocs(query(habitsCollectionRef));
+    const allReportsTimestamps: Timestamp[] = [];
+
+    // This can be slow if there are many habits and reports.
+    // For a large-scale app, this data would be pre-aggregated.
+    for (const habitDoc of habitsSnapshot.docs) {
+        const reportsCollectionRef = collection(db, 'users', userId, 'habits', habitDoc.id, 'reports');
+        const reportsSnapshot = await getDocs(query(reportsCollectionRef));
+        reportsSnapshot.forEach(reportDoc => {
+            allReportsTimestamps.push(reportDoc.data().reportedAt as Timestamp);
+        });
+    }
+
+    const uniqueMonths = new Set<string>(); // 'YYYY-MM'
+    allReportsTimestamps.forEach(ts => {
+        const date = ts.toDate();
+        uniqueMonths.add(format(date, 'yyyy-MM'));
+    });
+
+    return Array.from(uniqueMonths)
+        .map(ym => parse(ym, 'yyyy-MM', new Date()))
+        .sort((a, b) => b.getTime() - a.getTime());
 };

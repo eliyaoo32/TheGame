@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Settings } from 'lucide-react';
+import { Home, Settings, BarChartHorizontal } from 'lucide-react';
 import { Logo } from '@/components/icons';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
@@ -13,6 +13,7 @@ export function AppSidebar() {
   const navItems = [
     { href: '/', icon: Home, label: 'Dashboard' },
     { href: '/manage-habits', icon: Settings, label: 'Manage Habits' },
+    { href: '/reports', icon: BarChartHorizontal, label: 'Reports' },
   ];
 
   return (
