@@ -138,7 +138,7 @@ export default function ManageHabitsPage() {
         toast({ title: 'Category added!', description: `"${savedCategoryData.name}" has been saved.` });
       }
       fetchData(); // Refetch all data
-    } catch (error)
+    } catch (error) {
       console.error("Failed to save category:", error);
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to save category.' });
     }
