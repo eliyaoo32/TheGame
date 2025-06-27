@@ -189,14 +189,17 @@ export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange, catego
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Category</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select
+                        onValueChange={(value) => field.onChange(value === 'NONE' ? '' : value)}
+                        value={field.value || 'NONE'}
+                      >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select a category" />
+                            <SelectValue />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">Uncategorized</SelectItem>
+                          <SelectItem value="NONE">Uncategorized</SelectItem>
                           {categories.map(cat => (
                               <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                           ))}
