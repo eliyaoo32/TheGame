@@ -1,6 +1,6 @@
 'use client';
 
-import { useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -8,7 +8,6 @@ import { Form, FormControl, FormField, FormItem } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Sparkles } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 import { invokeHabitAgent } from '@/lib/actions';
 import {
   Card,
@@ -17,6 +16,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 
 interface AIAgentBarProps {
@@ -29,7 +29,7 @@ const agentSchema = z.object({
 
 export function AIAgentBar({ onSuccess }: AIAgentBarProps) {
   const [isPending, startTransition] = useTransition();
-  const { toast } = useToast();
+  const [agentResponse, setAgentResponse] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const form = useForm<z.infer<typeof agentSchema>>({
     resolver: zodResolver(agentSchema),
@@ -37,21 +37,15 @@ export function AIAgentBar({ onSuccess }: AIAgentBarProps) {
   });
 
   const onSubmit = (values: z.infer<typeof agentSchema>) => {
+    setAgentResponse(null);
     startTransition(async () => {
       const result = await invokeHabitAgent(values);
-      if (result.success) {
-        toast({
-          title: "AI Assistant",
-          description: result.message,
-        });
+      if (result.success && result.message) {
+        setAgentResponse({ message: result.message, type: 'success' });
         form.reset();
         onSuccess();
-      } else {
-        toast({
-          variant: 'destructive',
-          title: "Error",
-          description: result.error,
-        });
+      } else if (result.error) {
+        setAgentResponse({ message: result.error, type: 'error' });
       }
     });
   };
@@ -68,6 +62,19 @@ export function AIAgentBar({ onSuccess }: AIAgentBarProps) {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {agentResponse && (
+          <div className="mb-4 rounded-md border p-3 text-sm">
+            <p
+              className={cn(
+                'font-medium',
+                agentResponse.type === 'success' ? 'text-primary' : 'text-destructive'
+              )}
+            >
+              {agentResponse.type === 'success' ? 'AI Response:' : 'Error:'}
+            </p>
+            <p className="text-muted-foreground">{agentResponse.message}</p>
+          </div>
+        )}
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex items-center gap-2">
             <FormField
