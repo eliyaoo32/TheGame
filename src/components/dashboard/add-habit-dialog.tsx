@@ -54,7 +54,7 @@ const addHabitSchema = z.object({
 
 type AddHabitFormValues = z.infer<typeof addHabitSchema>;
 
-const iconNames = ['Dumbbell', 'BookOpen', 'Leaf', 'Target', 'Clock'];
+const iconNames = ['Dumbbell', 'Leaf', 'Carrot', 'BookOpen', 'GraduationCap', 'Languages', 'FolderKanban', 'Target', 'Clock'];
 
 export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange }: AddHabitDialogProps) {
   const isEditMode = !!habitToEdit;

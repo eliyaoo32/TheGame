@@ -1,7 +1,17 @@
 'use client';
 
 import type { LucideIcon, LucideProps } from 'lucide-react';
-import { BookOpen, Clock, Dumbbell, Leaf, Target } from 'lucide-react';
+import {
+  BookOpen,
+  Clock,
+  Dumbbell,
+  Leaf,
+  Target,
+  Carrot,
+  Languages,
+  GraduationCap,
+  FolderKanban,
+} from 'lucide-react';
 
 const iconMap: { [key: string]: LucideIcon } = {
   Dumbbell,
@@ -9,6 +19,10 @@ const iconMap: { [key: string]: LucideIcon } = {
   Leaf,
   Target,
   Clock,
+  Carrot,
+  Languages,
+  GraduationCap,
+  FolderKanban,
 };
 
 interface HabitIconProps extends LucideProps {
