@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import type { Habit, HabitFrequency, HabitType } from '@/lib/types';
+import type { Habit, HabitFrequency, HabitType, Category } from '@/lib/types';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -28,10 +28,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { HabitIcon } from '@/components/habit-icon';
 
 interface AddHabitDialogProps {
-  onSave: (habit: Omit<Habit, 'id' | 'progress' | 'completed' | 'reports' | 'lastReportedValue'> & { id?: string }) => void;
+  onSave: (habit: Omit<Habit, 'id' | 'progress' | 'completed' | 'reports' | 'lastReportedValue' | 'categoryName'> & { id?: string }) => void;
   habitToEdit?: Habit;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  categories: Category[];
 }
 
 const addHabitSchema = z.object({
@@ -42,6 +43,7 @@ const addHabitSchema = z.object({
   goal: z.string().min(1, 'Goal is required.'),
   icon: z.string().min(1, 'Icon is required.'),
   options: z.string().optional(),
+  categoryId: z.string().optional(),
 }).refine(data => {
     if (data.type === 'options') {
         return data.options && data.options.trim().length > 0;
@@ -56,7 +58,7 @@ type AddHabitFormValues = z.infer<typeof addHabitSchema>;
 
 const iconNames = ['Dumbbell', 'Leaf', 'Carrot', 'BookOpen', 'GraduationCap', 'Languages', 'FolderKanban', 'Target', 'Clock'];
 
-export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange }: AddHabitDialogProps) {
+export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange, categories }: AddHabitDialogProps) {
   const isEditMode = !!habitToEdit;
 
   const form = useForm<AddHabitFormValues>({
@@ -69,27 +71,32 @@ export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange }: AddH
       goal: '',
       icon: '',
       options: '',
+      categoryId: '',
     },
   });
   
   const habitType = form.watch('type');
 
   useEffect(() => {
-    if (open && habitToEdit) {
-      form.reset({
-        ...habitToEdit,
-        options: habitToEdit.options || '',
-      });
-    } else if (open && !habitToEdit) {
-      form.reset({
-        name: '',
-        description: '',
-        frequency: 'daily',
-        type: 'boolean',
-        goal: '',
-        icon: '',
-        options: '',
-      });
+    if (open) {
+      if (habitToEdit) {
+        form.reset({
+          ...habitToEdit,
+          options: habitToEdit.options || '',
+          categoryId: habitToEdit.categoryId || '',
+        });
+      } else {
+        form.reset({
+          name: '',
+          description: '',
+          frequency: 'daily',
+          type: 'boolean',
+          goal: '',
+          icon: '',
+          options: '',
+          categoryId: '',
+        });
+      }
     }
   }, [habitToEdit, open, form]);
 
@@ -143,7 +150,7 @@ export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange }: AddH
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
             <FormField
               control={form.control}
               name="name"
@@ -174,33 +181,60 @@ export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange }: AddH
                 </FormItem>
               )}
             />
-             <FormField
-              control={form.control}
-              name="icon"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Icon</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select an icon" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {iconNames.map(iconName => (
-                          <SelectItem key={iconName} value={iconName}>
-                            <div className="flex items-center gap-2">
-                               <HabitIcon name={iconName} className="h-4 w-4" />
-                               <span>{iconName}</span>
-                            </div>
-                          </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+
+            <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="categoryId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Category</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a category" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="">Uncategorized</SelectItem>
+                          {categories.map(cat => (
+                              <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="icon"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Icon</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select an icon" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {iconNames.map(iconName => (
+                              <SelectItem key={iconName} value={iconName}>
+                                <div className="flex items-center gap-2">
+                                  <HabitIcon name={iconName} className="h-4 w-4" />
+                                  <span>{iconName}</span>
+                                </div>
+                              </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+            </div>
+            
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -295,7 +329,7 @@ export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange }: AddH
                 />
             )}
 
-            <DialogFooter>
+            <DialogFooter className="pt-4">
                 <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
                 <Button type="submit">{isEditMode ? 'Save Changes' : 'Save Habit'}</Button>
             </DialogFooter>

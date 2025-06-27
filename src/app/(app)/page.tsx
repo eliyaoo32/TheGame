@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useTransition } from 'react';
+import { useState, useEffect, useCallback, useTransition, useMemo } from 'react';
 import { HabitCard } from '@/components/dashboard/habit-card';
 import { ChatReporter } from '@/components/dashboard/chat-reporter';
 import type { Habit, HabitReport } from '@/lib/types';
@@ -122,8 +122,29 @@ export default function DashboardPage() {
     });
   };
 
-  const dailyHabits = habits.filter((habit) => habit.frequency === 'daily');
-  const weeklyHabits = habits.filter((habit) => habit.frequency === 'weekly');
+  const groupedHabits = useMemo(() => {
+    if (habits.length === 0) return {};
+    
+    const sortedHabits = [...habits].sort((a, b) => {
+        const catA = a.categoryName || 'zzz'; // Uncategorized last
+        const catB = b.categoryName || 'zzz';
+        if (catA < catB) return -1;
+        if (catA > catB) return 1;
+        if (a.name < b.name) return -1;
+        if (a.name > b.name) return 1;
+        return 0;
+    });
+
+    return sortedHabits.reduce((groups, habit) => {
+        const category = habit.categoryName || 'Uncategorized';
+        if (!groups[category]) {
+            groups[category] = [];
+        }
+        groups[category].push(habit);
+        return groups;
+    }, {} as { [key: string]: Habit[] });
+  }, [habits]);
+
 
   return (
     <>
@@ -139,7 +160,7 @@ export default function DashboardPage() {
 
         {loading ? (
            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-56 w-full rounded-lg" />)}
+            {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-56 w-full rounded-lg" />)}
           </div>
         ) : habits.length === 0 ? (
           <div className="text-center py-10 border-2 border-dashed rounded-lg bg-muted/20">
@@ -149,53 +170,26 @@ export default function DashboardPage() {
             </p>
           </div>
         ) : (
-          <>
-            <div>
-              <h2 className="text-lg font-semibold md:text-xl font-headline mb-4">
-                Daily Goals
-              </h2>
-              {dailyHabits.length > 0 ? (
+          <div className="flex flex-col gap-8">
+            {Object.entries(groupedHabits).map(([categoryName, habitsInCategory]) => (
+                <div key={categoryName}>
+                <h2 className="text-lg font-semibold md:text-xl font-headline mb-4">
+                    {categoryName}
+                </h2>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {dailyHabits.map((habit) => (
-                    <HabitCard 
-                        key={habit.id} 
-                        habit={habit} 
-                        onReport={() => setReportingHabit(habit)}
-                        onRestart={handleRestartHabit}
-                        isUpdating={isPending && updatingHabitId === habit.id}
-                    />
-                  ))}
+                    {habitsInCategory.map((habit) => (
+                        <HabitCard 
+                            key={habit.id} 
+                            habit={habit} 
+                            onReport={() => setReportingHabit(habit)}
+                            onRestart={handleRestartHabit}
+                            isUpdating={isPending && updatingHabitId === habit.id}
+                        />
+                    ))}
                 </div>
-              ) : (
-                <div className="text-center py-4 text-sm text-muted-foreground">
-                  No daily habits to show.
                 </div>
-              )}
-            </div>
-
-            <div>
-              <h2 className="text-lg font-semibold md:text-xl font-headline mb-4">
-                Weekly Goals
-              </h2>
-              {weeklyHabits.length > 0 ? (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {weeklyHabits.map((habit) => (
-                     <HabitCard 
-                        key={habit.id} 
-                        habit={habit} 
-                        onReport={() => setReportingHabit(habit)}
-                        onRestart={handleRestartHabit}
-                        isUpdating={isPending && updatingHabitId === habit.id}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-4 text-sm text-muted-foreground">
-                  No weekly habits to show.
-                </div>
-              )}
-            </div>
-          </>
+            ))}
+          </div>
         )}
       </div>
       <ChatReporter />

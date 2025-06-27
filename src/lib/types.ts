@@ -1,6 +1,11 @@
 export type HabitType = 'duration' | 'time' | 'boolean' | 'number' | 'options';
 export type HabitFrequency = 'daily' | 'weekly';
 
+export type Category = {
+  id: string;
+  name: string;
+};
+
 export type HabitReport = {
   id: string;
   value: any;
@@ -20,4 +25,6 @@ export type Habit = {
   completed: boolean;
   reports: HabitReport[]; // A list of reports for the current period
   lastReportedValue?: string;
+  categoryId?: string;
+  categoryName?: string;
 };
