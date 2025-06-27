@@ -38,7 +38,11 @@ export function HabitCard({ habit, onReport, onRestart, isUpdating }: HabitCardP
   };
 
   const getStatusText = () => {
-    if (habit.type === 'boolean' || habit.type === 'time' || habit.type === 'options') {
+    if (habit.type === 'options') {
+      return 'Goal: Complete one of the options';
+    }
+    
+    if (habit.type === 'boolean' || habit.type === 'time') {
       return `Goal: ${habit.goal}`;
     }
 
@@ -95,7 +99,7 @@ export function HabitCard({ habit, onReport, onRestart, isUpdating }: HabitCardP
           disabled={(isCompletableOnce && habit.completed) || isUpdating}
           className="w-full"
         >
-          {isUpdating ? 'Saving...' : 'Report Progress'}
+          {isUpdating ? 'Saving...' : (habit.type === 'number' || habit.type === 'duration') ? 'Report More' : 'Report Progress'}
         </Button>
         {habit.progress > 0 && (
             <Button

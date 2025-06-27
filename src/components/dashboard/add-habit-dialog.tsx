@@ -39,7 +39,7 @@ const addHabitSchema = z.object({
   description: z.string().min(1, 'Description is required.'),
   frequency: z.enum(['daily', 'weekly']),
   type: z.enum(['duration', 'time', 'boolean', 'number', 'options']),
-  goal: z.string().min(1, 'Goal is required.'),
+  goal: z.string().min(1, 'Goal or options must be provided.'),
   icon: z.string().min(1, 'Icon is required.'),
 });
 
@@ -90,11 +90,6 @@ export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange }: AddH
   };
   
   const goalFieldInfo = {
-    options: {
-        label: 'Options (comma-separated)',
-        placeholder: 'e.g. Walk, Run, Cycle',
-        description: 'Provide a list of options for the user to choose from.'
-    },
     boolean: {
         label: 'Task Description',
         placeholder: 'e.g. Meditate for 10 minutes',
@@ -238,29 +233,61 @@ export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange }: AddH
                 )}
               />
             </div>
-            <FormField
-                control={form.control}
-                name="goal"
-                render={({ field }) => (
+            
+            {habitType === 'options' ? (
+              <>
+                <FormItem>
+                  <FormLabel>Goal</FormLabel>
+                  <div className="text-sm p-3 bg-muted rounded-md text-muted-foreground border">
+                      The goal for this habit is to complete one of the options you define below.
+                  </div>
+                </FormItem>
+                <FormField
+                  control={form.control}
+                  name="goal"
+                  render={({ field }) => (
                     <FormItem>
-                    <FormLabel>
-                        {currentGoalInfo.label}
-                    </FormLabel>
-                    <FormControl>
+                      <FormLabel>Options (comma-separated)</FormLabel>
+                      <FormControl>
                         <Input
-                        placeholder={currentGoalInfo.placeholder}
-                        {...field}
+                          placeholder="e.g. Walk, Run, Cycle"
+                          {...field}
                         />
-                    </FormControl>
-                    {currentGoalInfo.description && (
-                        <FormDescription>
-                        {currentGoalInfo.description}
-                        </FormDescription>
-                    )}
-                    <FormMessage />
+                      </FormControl>
+                      <FormDescription>
+                        Provide a list of options for the user to choose from.
+                      </FormDescription>
+                      <FormMessage />
                     </FormItem>
-                )}
+                  )}
                 />
+              </>
+            ) : (
+                <FormField
+                    control={form.control}
+                    name="goal"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>
+                            {currentGoalInfo.label}
+                        </FormLabel>
+                        <FormControl>
+                            <Input
+                            placeholder={currentGoalInfo.placeholder}
+                            {...field}
+                            />
+                        </FormControl>
+                        {currentGoalInfo.description && (
+                            <FormDescription>
+                            {currentGoalInfo.description}
+                            </FormDescription>
+                        )}
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+            )}
+
             <DialogFooter>
                 <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
                 <Button type="submit">{isEditMode ? 'Save Changes' : 'Save Habit'}</Button>
