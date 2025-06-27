@@ -13,7 +13,6 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Habit } from '@/lib/types';
-import { placeholderHabits } from '@/lib/placeholder-data';
 
 // Hardcoded user ID for now, until we have authentication
 const userId = 'test-user';
@@ -30,23 +29,6 @@ const mapDocToHabit = (doc: QueryDocumentSnapshot<DocumentData, DocumentData>): 
 export const getHabits = async (): Promise<Habit[]> => {
   try {
     const snapshot = await getDocs(query(habitsCollectionRef));
-    
-    // If the database is empty, seed it with placeholder data for the first run.
-    if (snapshot.empty && placeholderHabits.length > 0) {
-        console.log("No habits found for user, seeding with placeholder data...");
-        const batch = writeBatch(db);
-        placeholderHabits.forEach((habit) => {
-            const { id, ...habitData } = habit;
-            const newHabitRef = doc(habitsCollectionRef);
-            batch.set(newHabitRef, { ...habitData, createdAt: Timestamp.now() });
-        });
-        await batch.commit();
-        
-        // Fetch again after seeding
-        const seededSnapshot = await getDocs(query(habitsCollectionRef));
-        return seededSnapshot.docs.map(mapDocToHabit);
-    }
-
     return snapshot.docs.map(mapDocToHabit);
   } catch (error) {
     console.error("Error fetching habits: ", error);
