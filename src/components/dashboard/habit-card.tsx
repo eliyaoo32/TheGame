@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { Sparkles } from 'lucide-react';
+import { RotateCcw, Sparkles } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 import { HabitIcon } from '@/components/habit-icon';
@@ -19,14 +19,21 @@ import { HabitIcon } from '@/components/habit-icon';
 interface HabitCardProps {
   habit: Habit;
   onReport: (habit: Habit) => void;
-  isReporting?: boolean;
+  onRestart: (habit: Habit) => void;
+  isUpdating?: boolean;
 }
 
-export function HabitCard({ habit, onReport, isReporting }: HabitCardProps) {
+export function HabitCard({ habit, onReport, onRestart, isUpdating }: HabitCardProps) {
 
   const handleReport = () => {
-    if (!habit.completed && !isReporting) {
+    if (!habit.completed && !isUpdating) {
         onReport(habit);
+    }
+  };
+
+  const handleRestart = () => {
+    if (!isUpdating) {
+        onRestart(habit);
     }
   };
 
@@ -71,14 +78,25 @@ export function HabitCard({ habit, onReport, isReporting }: HabitCardProps) {
           </div>
         )}
       </CardContent>
-      <CardFooter>
+      <CardFooter className="gap-2">
         <Button
           onClick={handleReport}
-          disabled={habit.completed || isReporting}
+          disabled={habit.completed || isUpdating}
           className="w-full"
         >
-          {isReporting ? 'Saving...' : 'Report Progress'}
+          {isUpdating ? 'Saving...' : 'Report Progress'}
         </Button>
+        {habit.progress > 0 && (
+            <Button
+                onClick={handleRestart}
+                disabled={isUpdating}
+                variant="outline"
+                size="icon"
+                aria-label="Restart habit progress"
+            >
+                <RotateCcw className="h-4 w-4" />
+            </Button>
+        )}
       </CardFooter>
     </Card>
   );

@@ -15,6 +15,7 @@ export default function DashboardPage() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
   const [reportingHabit, setReportingHabit] = useState<Habit | null>(null);
+  const [updatingHabitId, setUpdatingHabitId] = useState<string | null>(null);
   const [currentDate, setCurrentDate] = useState('');
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
@@ -50,6 +51,7 @@ export default function DashboardPage() {
   }, []);
 
   const handleSaveProgress = (habit: Habit, value: any) => {
+    setUpdatingHabitId(habit.id);
     startTransition(async () => {
       let progress = habit.progress;
       let completed = habit.completed;
@@ -106,6 +108,30 @@ export default function DashboardPage() {
          toast({ variant: 'destructive', title: 'Error', description: 'Could not save your progress.' });
          // Revert optimistic update
          setHabits((prev) => prev.map((h) => (h.id === habit.id ? habit : h)));
+      } finally {
+        setUpdatingHabitId(null);
+      }
+    });
+  };
+
+  const handleRestartHabit = (habit: Habit) => {
+    setUpdatingHabitId(habit.id);
+    startTransition(async () => {
+      const originalHabit = { ...habit };
+      // Optimistically update the UI
+      const updatedHabit = { ...habit, progress: 0, completed: false, feedback: undefined };
+      setHabits((prev) => prev.map((h) => (h.id === habit.id ? updatedHabit : h)));
+
+      try {
+        await updateHabit(habit.id, { progress: 0, completed: false, feedback: '' });
+        toast({ title: "Habit restarted!", description: `Progress for "${habit.name}" has been reset.` });
+      } catch (error) {
+        console.error("Failed to restart habit:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not restart habit.' });
+        // Revert on error
+        setHabits((prev) => prev.map((h) => (h.id === habit.id ? originalHabit : h)));
+      } finally {
+        setUpdatingHabitId(null);
       }
     });
   };
@@ -151,7 +177,8 @@ export default function DashboardPage() {
                         key={habit.id} 
                         habit={habit} 
                         onReport={() => setReportingHabit(habit)}
-                        isReporting={isPending && reportingHabit?.id === habit.id}
+                        onRestart={handleRestartHabit}
+                        isUpdating={isPending && updatingHabitId === habit.id}
                     />
                   ))}
                 </div>
@@ -173,7 +200,8 @@ export default function DashboardPage() {
                         key={habit.id} 
                         habit={habit} 
                         onReport={() => setReportingHabit(habit)}
-                        isReporting={isPending && reportingHabit?.id === habit.id}
+                        onRestart={handleRestartHabit}
+                        isUpdating={isPending && updatingHabitId === habit.id}
                     />
                   ))}
                 </div>
