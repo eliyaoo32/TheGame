@@ -33,24 +33,6 @@ const AddHabitReportInputSchema = z.object({
 
 // Tool Definitions
 
-const getHabitsAndCategoriesTool = ai.defineTool(
-  {
-    name: 'getHabitsAndCategories',
-    description: 'Retrieves a list of all existing habits and categories to understand what the user has already configured.',
-    outputSchema: z.object({
-        habits: z.array(z.any()),
-        categories: z.array(z.any()),
-    }),
-  },
-  async () => {
-    const [habits, categories] = await Promise.all([
-        habitService.getHabits(),
-        habitService.getCategories(),
-    ]);
-    return { habits, categories };
-  }
-);
-
 const addHabitTool = ai.defineTool({
     name: 'addHabit',
     description: 'Creates a new habit.',
@@ -77,7 +59,17 @@ const addHabitReportTool = ai.defineTool({
     inputSchema: AddHabitReportInputSchema,
     outputSchema: z.object({ success: z.boolean() }),
 }, async ({ habitId, value }) => {
-    await habitService.addHabitReport(habitId, value);
+    // Ensure numeric values are stored as numbers for consistency.
+    const habit = await habitService.getHabitById(habitId);
+    let parsedValue = value;
+
+    if (habit && (habit.type === 'number' || habit.type === 'duration')) {
+        const num = parseFloat(value);
+        if (!isNaN(num)) {
+            parsedValue = num;
+        }
+    }
+    await habitService.addHabitReport(habitId, parsedValue);
     return { success: true };
 });
 
@@ -96,7 +88,7 @@ const prompt = ai.definePrompt({
     name: 'habitAgentPrompt',
     input: { schema: z.object({ query: z.string(), habits: z.array(z.any()), categories: z.array(z.any()) }) },
     output: { schema: HabitAgentOutputSchema },
-    tools: [getHabitsAndCategoriesTool, addHabitTool, updateHabitTool, addHabitReportTool],
+    tools: [addHabitTool, updateHabitTool, addHabitReportTool],
     prompt: `You are an intelligent habit management assistant.
     Your goal is to help users manage their habits by understanding their natural language commands and using the available tools.
 
@@ -123,10 +115,22 @@ const habitAgentFlow = ai.defineFlow(
     outputSchema: HabitAgentOutputSchema,
   },
   async ({ query }) => {
-    const [habits, categories] = await Promise.all([
+    const [rawHabits, categories] = await Promise.all([
         habitService.getHabits(),
         habitService.getCategories(),
     ]);
+
+    // Pass a simplified version to the prompt to be more concise and clear for the AI.
+    const habits = rawHabits.map(h => ({
+        id: h.id,
+        name: h.name,
+        description: h.description,
+        type: h.type,
+        goal: h.goal,
+        frequency: h.frequency,
+        category: h.categoryName || 'Uncategorized',
+    }));
+
     const { output } = await prompt({ query, habits, categories });
     return output!;
   }

@@ -4,6 +4,7 @@ import {
   addDoc,
   getDocs,
   doc,
+  getDoc,
   updateDoc,
   deleteDoc,
   Timestamp,
@@ -147,6 +148,26 @@ export const getHabits = async (): Promise<Habit[]> => {
   }
 };
 
+export const getHabitById = async (habitId: string): Promise<Omit<Habit, 'reports' | 'progress' | 'completed' | 'lastReportedValue' | 'categoryName'> | null> => {
+    try {
+        const habitDocRef = doc(db, 'users', userId, 'habits', habitId);
+        const habitDoc = await getDoc(habitDocRef);
+
+        if (!habitDoc.exists()) {
+            return null;
+        }
+        const data = habitDoc.data();
+        const { createdAt, ...serializableData } = data;
+
+        return {
+            id: habitDoc.id,
+            ...serializableData
+        } as Omit<Habit, 'reports' | 'progress' | 'completed' | 'lastReportedValue' | 'categoryName'>;
+    } catch (error) {
+        console.error(`Error fetching habit by ID ${habitId}:`, error);
+        return null;
+    }
+}
 
 export const addHabit = async (habitData: Omit<Habit, 'id' | 'progress' | 'completed' | 'reports' | 'lastReportedValue' | 'options' | 'categoryName'> & { options?: string }) => {
   const newHabit = {
