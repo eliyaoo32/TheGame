@@ -28,8 +28,8 @@ export default function DashboardPage() {
       console.error("Failed to fetch habits:", error);
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: 'Could not fetch your habits. Please try again later.',
+        title: 'Error fetching habits',
+        description: 'Could not fetch your habits. Please ensure your Firebase configuration in .env is correct and check your Firestore security rules.',
       });
     } finally {
       setLoading(false);
