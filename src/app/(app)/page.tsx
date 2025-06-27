@@ -29,7 +29,7 @@ export default function DashboardPage() {
       toast({
         variant: 'destructive',
         title: 'Error fetching habits',
-        description: 'Could not fetch your habits. Please ensure your Firebase configuration in .env is correct and check your Firestore security rules.',
+        description: 'Could not fetch your habits. Please ensure your Firebase configuration in .env is correct and check your Firestore security rules. After fixing, you may need to refresh the page.',
       });
     } finally {
       setLoading(false);
@@ -41,6 +41,7 @@ export default function DashboardPage() {
   }, [fetchHabits]);
 
   useEffect(() => {
+    // This runs only on the client, after hydration
     setCurrentDate(new Date().toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
@@ -54,9 +55,9 @@ export default function DashboardPage() {
     startTransition(async () => {
       let progress = habit.progress || 0;
       let completed = habit.completed;
-      let lastReportedValue = habit.lastReportedValue;
+      
+      const dataToUpdate: Partial<Omit<Habit, 'id'>> = {};
 
-      // Default goal value for boolean/time/options is 1 (as in 1 task to complete)
       let goalValue = 1;
 
       if (habit.type === 'number' || habit.type === 'duration') {
@@ -66,21 +67,26 @@ export default function DashboardPage() {
           progress += reportedValue;
         }
       } else if (habit.type === 'options') {
-        // For options, we mark as complete and store the chosen value.
         progress = 1;
-        lastReportedValue = String(value);
-      } else { // boolean, time
+        dataToUpdate.lastReportedValue = String(value);
+      } else if (habit.type === 'time') {
+        progress = goalValue;
+        dataToUpdate.lastReportedValue = String(value);
+      } else { // boolean
         progress = goalValue;
       }
 
       completed = progress >= goalValue;
-
-      const updatedHabit: Habit = { ...habit, progress, completed, lastReportedValue };
+      dataToUpdate.progress = progress;
+      dataToUpdate.completed = completed;
+      
+      // Optimistic update
+      const updatedHabit: Habit = { ...habit, ...dataToUpdate };
       setHabits((prev) => prev.map((h) => (h.id === habit.id ? updatedHabit : h)));
       setReportingHabit(null);
       
       try {
-        await updateHabit(habit.id, { progress, completed, lastReportedValue });
+        await updateHabit(habit.id, dataToUpdate);
         toast({ title: "Progress saved!", description: `Your progress for "${habit.name}" has been updated.`});
       } catch (error) {
          console.error("Failed to update habit:", error);
