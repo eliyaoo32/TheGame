@@ -9,7 +9,7 @@ export type Habit = {
   frequency: HabitFrequency;
   icon: string;
   goal: string;
-  progress: number; // 0-100
+  progress: number; // The actual tracked value, NOT a percentage.
   completed: boolean;
   feedback?: string;
 };
@@ -18,5 +18,5 @@ export type CommunityUser = {
   id: string;
   name: string;
   avatarUrl: string;
-  habits: Pick<Habit, 'name' | 'icon' | 'progress' | 'completed'>[];
+  habits: Pick<Habit, 'name' | 'icon' | 'progress' | 'completed' | 'goal'>[];
 };

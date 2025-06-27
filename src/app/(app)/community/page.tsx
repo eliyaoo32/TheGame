@@ -37,15 +37,20 @@ export default function CommunityPage() {
                 </h3>
                 {user.habits.length > 0 ? (
                   <ul className="space-y-3">
-                    {user.habits.map((habit) => (
-                      <li key={habit.name} className="flex flex-col gap-1.5">
-                        <div className="flex items-center gap-2 text-sm">
-                           <HabitIcon name={habit.icon} className="h-4 w-4 text-muted-foreground" />
-                           <span>{habit.name}</span>
-                        </div>
-                        <Progress value={habit.progress} aria-label={`${habit.name} progress`} />
-                      </li>
-                    ))}
+                    {user.habits.map((habit) => {
+                      const goalValue = parseInt(habit.goal?.match(/\d+/)?.[0] || '1', 10);
+                      const progressPercentage = goalValue > 0 ? Math.min(100, ((habit.progress || 0) / goalValue) * 100) : 0;
+                      
+                      return (
+                        <li key={habit.name} className="flex flex-col gap-1.5">
+                          <div className="flex items-center gap-2 text-sm">
+                            <HabitIcon name={habit.icon} className="h-4 w-4 text-muted-foreground" />
+                            <span>{habit.name}</span>
+                          </div>
+                          <Progress value={progressPercentage} aria-label={`${habit.name} progress`} />
+                        </li>
+                      );
+                    })}
                   </ul>
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-4">

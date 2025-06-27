@@ -53,25 +53,21 @@ export default function DashboardPage() {
   const handleSaveProgress = (habit: Habit, value: any) => {
     setUpdatingHabitId(habit.id);
     startTransition(async () => {
-      let progress = habit.progress;
+      let progress = habit.progress || 0;
       let completed = habit.completed;
 
+      const goalValue = parseInt(habit.goal.match(/\d+/)?.[0] || '1', 10);
+
       if (habit.type === 'boolean' || habit.type === 'time' || habit.type === 'options') {
-        progress = 100;
-        completed = true;
+        progress = goalValue;
       } else if (habit.type === 'number' || habit.type === 'duration') {
-        const goalValue = parseInt(habit.goal.match(/\d+/)?.[0] || '1', 10);
         const reportedValue = Number(value);
-        if (!isNaN(reportedValue) && goalValue > 0) {
-          // For now, we assume each report adds to progress.
-          // A more complex implementation could track cumulative values.
-          const currentProgressValue = (habit.progress / 100) * goalValue;
-          const newTotalValue = currentProgressValue + reportedValue;
-          progress = Math.min(100, Math.round((newTotalValue / goalValue) * 100));
+        if (!isNaN(reportedValue)) {
+          progress += reportedValue;
         }
       }
 
-      completed = progress >= 100;
+      completed = progress >= goalValue;
 
       const updatedHabit = { ...habit, progress, completed };
       setHabits((prev) => prev.map((h) => (h.id === habit.id ? updatedHabit : h)));

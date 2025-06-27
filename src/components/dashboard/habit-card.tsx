@@ -26,7 +26,7 @@ interface HabitCardProps {
 export function HabitCard({ habit, onReport, onRestart, isUpdating }: HabitCardProps) {
 
   const handleReport = () => {
-    if (!habit.completed && !isUpdating) {
+    if (!isUpdating) {
         onReport(habit);
     }
   };
@@ -50,12 +50,23 @@ export function HabitCard({ habit, onReport, onRestart, isUpdating }: HabitCardP
     const goalValue = parseInt(goalParts[1], 10);
     const unit = goalParts[2] || '';
 
-    const currentValue = habit.completed
-      ? goalValue
-      : Math.floor((habit.progress / 100) * goalValue);
+    const currentValue = habit.progress || 0;
 
     return `Status: ${currentValue} / ${goalValue} ${unit.trim()}`;
   };
+
+  const getProgressPercentage = () => {
+    if (habit.type === 'boolean' || habit.type === 'time' || habit.type === 'options') {
+      return habit.completed ? 100 : 0;
+    }
+    const goalValue = parseInt(habit.goal.match(/\d+/)?.[0] || '1', 10);
+    if (goalValue <= 0) return 0;
+    const percentage = ((habit.progress || 0) / goalValue) * 100;
+    return Math.min(100, percentage);
+  };
+  
+  const isCompletableOnce = habit.type === 'boolean' || habit.type === 'time' || habit.type === 'options';
+
 
   return (
     <Card className={cn("flex flex-col transition-shadow duration-200 hover:shadow-lg", habit.completed && "bg-muted/60")}>
@@ -70,7 +81,7 @@ export function HabitCard({ habit, onReport, onRestart, isUpdating }: HabitCardP
         <CardDescription>{getStatusText()}</CardDescription>
       </CardHeader>
       <CardContent className="flex-grow">
-        <Progress value={habit.progress} aria-label={`${habit.name} progress`} />
+        <Progress value={getProgressPercentage()} aria-label={`${habit.name} progress`} />
         {habit.feedback && (
           <div className="mt-4 flex items-start gap-2 text-sm text-primary p-3 bg-primary/10 rounded-lg">
             <Sparkles className="h-4 w-4 shrink-0 mt-0.5" />
@@ -81,7 +92,7 @@ export function HabitCard({ habit, onReport, onRestart, isUpdating }: HabitCardP
       <CardFooter className="gap-2">
         <Button
           onClick={handleReport}
-          disabled={habit.completed || isUpdating}
+          disabled={(isCompletableOnce && habit.completed) || isUpdating}
           className="w-full"
         >
           {isUpdating ? 'Saving...' : 'Report Progress'}
