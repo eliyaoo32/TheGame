@@ -15,7 +15,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Habit, HabitFrequency, HabitReport } from '@/lib/types';
-import { startOfDay, startOfWeek, startOfMonth, endOfMonth, format, parse } from 'date-fns';
+import { startOfDay, startOfWeek, startOfMonth, endOfMonth, format, parse, endOfWeek } from 'date-fns';
 
 // Hardcoded user ID for now, until we have authentication
 const userId = 'test-user';
@@ -205,6 +205,52 @@ export const getHabitsWithReportsForMonth = async (date: Date): Promise<Habit[]>
 
     } catch (error) {
         console.error("Error fetching habits for month: ", error);
+        if (error instanceof Error && error.message.includes('permission-denied')) {
+            console.error("Firestore permission denied.");
+        }
+        return [];
+    }
+};
+
+export const getHabitsWithReportsForWeek = async (date: Date): Promise<Habit[]> => {
+    try {
+        const habitsSnapshot = await getDocs(query(habitsCollectionRef));
+        const habitsData = habitsSnapshot.docs.map(mapDocToHabit);
+
+        const weekStart = startOfWeek(date, { weekStartsOn: 0 });
+        const weekEndValue = endOfWeek(date, { weekStartsOn: 0 });
+
+        const habitsWithReports = await Promise.all(
+            habitsData.map(async (habit) => {
+            const reportsCollectionRef = collection(db, 'users', userId, 'habits', habit.id, 'reports');
+            const reportsQuery = query(
+                reportsCollectionRef,
+                where('reportedAt', '>=', weekStart),
+                where('reportedAt', '<=', weekEndValue)
+            );
+            const reportsSnapshot = await getDocs(reportsQuery);
+
+            const reports: HabitReport[] = reportsSnapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    value: data.value,
+                    reportedAt: (data.reportedAt as Timestamp).toDate(),
+                };
+            }).sort((a, b) => a.reportedAt.getTime() - b.reportedAt.getTime());
+
+            return {
+                ...habit,
+                reports,
+                progress: 0, // Not relevant for this view
+                completed: false, // Not relevant for this view
+            } as Habit;
+            })
+        );
+        return habitsWithReports;
+
+    } catch (error) {
+        console.error("Error fetching habits for week: ", error);
         if (error instanceof Error && error.message.includes('permission-denied')) {
             console.error("Firestore permission denied.");
         }

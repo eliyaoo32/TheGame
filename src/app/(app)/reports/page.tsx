@@ -14,10 +14,10 @@ import {
   getDate,
   startOfWeek,
   endOfWeek,
-  isWithinInterval,
 } from 'date-fns';
 import {
   getHabitsWithReportsForMonth,
+  getHabitsWithReportsForWeek,
   getUniqueReportMonths,
 } from '@/services/habits';
 import type { Habit, HabitReport } from '@/lib/types';
@@ -51,7 +51,7 @@ export default function ReportsPage() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isMonthsLoading, setIsMonthsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('calendar');
+  const [activeTab, setActiveTab] = useState('table');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -62,9 +62,10 @@ export default function ReportsPage() {
         const monthStrings = months.map(m => format(m, 'yyyy-MM'));
         setAvailableMonths(monthStrings);
         if (monthStrings.length > 0) {
-          setSelectedMonth(monthStrings[0]);
-        } else {
-          setIsLoading(false);
+          // Set default month but don't trigger immediate data fetching for calendar
+          if (!selectedMonth) {
+            setSelectedMonth(monthStrings[0]);
+          }
         }
       } catch (error) {
         console.error('Failed to fetch report months:', error);
@@ -78,34 +79,39 @@ export default function ReportsPage() {
       }
     }
     fetchMonths();
-  }, [toast]);
+  }, [toast, selectedMonth]);
 
   useEffect(() => {
-    if (!selectedMonth) {
-      setHabits([]);
-      setIsLoading(false);
-      return;
-    };
-
     async function fetchReports() {
       setIsLoading(true);
       try {
-        const monthDate = parse(selectedMonth, 'yyyy-MM', new Date());
-        const fetchedHabits = await getHabitsWithReportsForMonth(monthDate);
-        setHabits(fetchedHabits);
+        if (activeTab === 'calendar') {
+          if (!selectedMonth) {
+            setHabits([]);
+            setIsLoading(false);
+            return;
+          }
+          const monthDate = parse(selectedMonth, 'yyyy-MM', new Date());
+          const fetchedHabits = await getHabitsWithReportsForMonth(monthDate);
+          setHabits(fetchedHabits);
+        } else if (activeTab === 'table') {
+          const fetchedHabits = await getHabitsWithReportsForWeek(new Date());
+          setHabits(fetchedHabits);
+        }
       } catch (error) {
-        console.error(`Failed to fetch reports for ${selectedMonth}:`, error);
+        console.error(`Failed to fetch reports for ${activeTab}:`, error);
         toast({
           variant: 'destructive',
           title: 'Error',
-          description: 'Could not load reports for the selected month.',
+          description: 'Could not load report data.',
         });
+        setHabits([]);
       } finally {
         setIsLoading(false);
       }
     }
     fetchReports();
-  }, [selectedMonth, toast]);
+  }, [selectedMonth, activeTab, toast]);
 
   const { calendarGrid, reportsByDate } = useMemo(() => {
     if (!selectedMonth || activeTab !== 'calendar') return { calendarGrid: [], reportsByDate: new Map() };
@@ -153,27 +159,21 @@ export default function ReportsPage() {
     const tableData = new Map<string, { habit: Habit; reports: Map<string, string> }>();
 
     for (const habit of habits) {
-      const reportsForWeek = habit.reports.filter(report =>
-        isWithinInterval(report.reportedAt, { start: weekStart, end: weekEnd })
-      );
+      const habitRow = {
+        habit: habit,
+        reports: new Map<string, string>(),
+      };
 
-      if (reportsForWeek.length > 0) {
-        const habitRow = {
-          habit: habit,
-          reports: new Map<string, string>(),
-        };
-
-        reportsForWeek.forEach(report => {
-          const dayKey = format(report.reportedAt, 'yyyy-MM-dd');
-          if (habit.type === 'number' || habit.type === 'duration') {
-            const existingValue = Number(habitRow.reports.get(dayKey) || '0');
-            habitRow.reports.set(dayKey, String(existingValue + Number(report.value)));
-          } else {
-            habitRow.reports.set(dayKey, String(report.value));
-          }
-        });
-        tableData.set(habit.id, habitRow);
-      }
+      habit.reports.forEach(report => {
+        const dayKey = format(report.reportedAt, 'yyyy-MM-dd');
+        if (habit.type === 'number' || habit.type === 'duration') {
+          const existingValue = Number(habitRow.reports.get(dayKey) || '0');
+          habitRow.reports.set(dayKey, String(existingValue + Number(report.value)));
+        } else {
+          habitRow.reports.set(dayKey, String(report.value));
+        }
+      });
+      tableData.set(habit.id, habitRow);
     }
     return { weeklyTableData: Array.from(tableData.values()), daysOfWeek: days };
   }, [habits, activeTab, isLoading]);
@@ -211,11 +211,11 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="calendar" onValueChange={setActiveTab}>
+      <Tabs defaultValue="table" onValueChange={setActiveTab}>
         <div className="flex justify-end">
             <TabsList className="grid w-[280px] grid-cols-2">
-                <TabsTrigger value="calendar">Monthly Calendar</TabsTrigger>
                 <TabsTrigger value="table">Current Week Table</TabsTrigger>
+                <TabsTrigger value="calendar">Monthly Calendar</TabsTrigger>
             </TabsList>
         </div>
 
@@ -294,13 +294,11 @@ export default function ReportsPage() {
                 </CardHeader>
                 <CardContent>
                     {isLoading ? (
-                        <div className="space-y-4">
-                            {Array.from({ length: 4 }).map((_, i) => (
-                                <div key={i} className="flex items-center space-x-4 py-2">
-                                    <Skeleton className="h-8 w-32" />
-                                    <Skeleton className="h-8 flex-1" />
-                                </div>
-                            ))}
+                        <div className="space-y-2 p-4">
+                             <Skeleton className="h-8 w-full" />
+                             <Skeleton className="h-10 w-full" />
+                             <Skeleton className="h-10 w-full" />
+                             <Skeleton className="h-10 w-full" />
                         </div>
                     ) : weeklyTableData.length > 0 ? (
                         <Table>
@@ -332,7 +330,7 @@ export default function ReportsPage() {
                         </Table>
                     ) : (
                         <div className="text-center py-10">
-                            <p className="text-muted-foreground">No reports found for the current week.</p>
+                            <p className="text-muted-foreground">No habits created yet. Go to "Manage Habits" to get started.</p>
                         </div>
                     )}
                 </CardContent>
