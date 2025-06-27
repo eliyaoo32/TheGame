@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useTransition } from 'react';
 import { HabitCard } from '@/components/dashboard/habit-card';
 import { ChatReporter } from '@/components/dashboard/chat-reporter';
-import { DashboardSummary } from '@/components/dashboard/dashboard-summary';
 import type { Habit } from '@/lib/types';
 import { getHabits, updateHabit } from '@/services/habits';
 import { useToast } from '@/hooks/use-toast';
@@ -53,6 +52,7 @@ export default function DashboardPage() {
   const handleSaveProgress = (habit: Habit, value: any) => {
     setUpdatingHabitId(habit.id);
     startTransition(async () => {
+      const originalHabit = { ...habit };
       let progress = habit.progress || 0;
       let completed = habit.completed;
       
@@ -92,7 +92,7 @@ export default function DashboardPage() {
          console.error("Failed to update habit:", error);
          toast({ variant: 'destructive', title: 'Error', description: 'Could not save your progress.' });
          // Revert optimistic update
-         setHabits((prev) => prev.map((h) => (h.id === habit.id ? habit : h)));
+         setHabits((prev) => prev.map((h) => (h.id === originalHabit.id ? originalHabit : h)));
       } finally {
         setUpdatingHabitId(null);
       }
@@ -135,8 +135,6 @@ export default function DashboardPage() {
             <p className="text-sm text-muted-foreground">{currentDate}</p>
           </div>
         </div>
-
-        <DashboardSummary habits={habits} />
 
         {loading ? (
            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

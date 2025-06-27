@@ -15,10 +15,3 @@ export type Habit = {
   feedback?: string;
   lastReportedValue?: string;
 };
-
-export type CommunityUser = {
-  id: string;
-  name: string;
-  avatarUrl: string;
-  habits: Pick<Habit, 'name' | 'icon' | 'progress' | 'completed' | 'goal'>[];
-};
