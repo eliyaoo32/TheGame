@@ -15,7 +15,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Habit, HabitFrequency, HabitReport } from '@/lib/types';
-import { startOfDay, startOfWeek, startOfMonth, endOfMonth, format } from 'date-fns';
+import { startOfDay, startOfWeek, startOfMonth, endOfMonth, format, parse } from 'date-fns';
 
 // Hardcoded user ID for now, until we have authentication
 const userId = 'test-user';
