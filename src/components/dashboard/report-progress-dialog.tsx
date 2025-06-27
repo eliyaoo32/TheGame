@@ -52,8 +52,17 @@ export function ReportProgressDialog({ habit, open, onOpenChange, onSave, isSavi
   
   if (!habit) return null;
 
-  const onSubmit = (data: ReportFormValues) => {
+  const handleStandardSubmit = (data: ReportFormValues) => {
     onSave(habit, data.value);
+  };
+
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (habit.type === 'boolean') {
+      onSave(habit, true);
+    } else {
+      form.handleSubmit(handleStandardSubmit)();
+    }
   };
   
   const renderFormField = () => {
@@ -137,7 +146,7 @@ export function ReportProgressDialog({ habit, open, onOpenChange, onSave, isSavi
         )
       case 'boolean':
       default:
-        return <p className="text-sm">Ready to mark this as complete for the day?</p>;
+        return null;
     }
   };
   
@@ -153,7 +162,7 @@ export function ReportProgressDialog({ habit, open, onOpenChange, onSave, isSavi
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+          <form onSubmit={handleFormSubmit} className="space-y-4 py-4">
              {needsFormField ? (
               renderFormField()
             ) : (
