@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
 import { HabitIcon } from '@/components/habit-icon';
 
@@ -61,6 +61,8 @@ export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange }: AddH
       icon: '',
     },
   });
+  
+  const habitType = form.watch('type');
 
   useEffect(() => {
     if (open && habitToEdit) {
@@ -85,6 +87,40 @@ export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange }: AddH
       frequency: data.frequency as HabitFrequency
     });
     onOpenChange(false);
+  };
+  
+  const goalFieldInfo = {
+    options: {
+        label: 'Options (comma-separated)',
+        placeholder: 'e.g. Walk, Run, Cycle',
+        description: 'Provide a list of options for the user to choose from.'
+    },
+    boolean: {
+        label: 'Task Description',
+        placeholder: 'e.g. Meditate for 10 minutes',
+        description: 'A simple "Done/Not Done" habit. The goal is the task itself.'
+    },
+    time: {
+        label: 'Goal (Time)',
+        placeholder: 'e.g., 09:00',
+        description: 'The target time to complete the habit (e.g. 18:00).'
+    },
+    duration: {
+        label: 'Goal (Minutes)',
+        placeholder: 'e.g., 30',
+        description: 'The target duration in minutes.'
+    },
+    number: {
+        label: 'Goal (Numeric)',
+        placeholder: 'e.g., 25',
+        description: 'The target number (e.g., pages, glasses of water).'
+    }
+  };
+
+  const currentGoalInfo = goalFieldInfo[habitType as keyof typeof goalFieldInfo] || {
+      label: 'Goal',
+      placeholder: 'e.g. 30 minutes, 20 pages',
+      description: null
   };
 
   return (
@@ -203,18 +239,28 @@ export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange }: AddH
               />
             </div>
             <FormField
-              control={form.control}
-              name="goal"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Goal</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g. 30 minutes, 20 pages" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                control={form.control}
+                name="goal"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>
+                        {currentGoalInfo.label}
+                    </FormLabel>
+                    <FormControl>
+                        <Input
+                        placeholder={currentGoalInfo.placeholder}
+                        {...field}
+                        />
+                    </FormControl>
+                    {currentGoalInfo.description && (
+                        <FormDescription>
+                        {currentGoalInfo.description}
+                        </FormDescription>
+                    )}
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
             <DialogFooter>
                 <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
                 <Button type="submit">{isEditMode ? 'Save Changes' : 'Save Habit'}</Button>
