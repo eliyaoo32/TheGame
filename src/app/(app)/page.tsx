@@ -54,26 +54,33 @@ export default function DashboardPage() {
     startTransition(async () => {
       let progress = habit.progress || 0;
       let completed = habit.completed;
+      let lastReportedValue = habit.lastReportedValue;
 
-      const goalValue = parseInt(habit.goal.match(/\d+/)?.[0] || '1', 10);
+      // Default goal value for boolean/time/options is 1 (as in 1 task to complete)
+      let goalValue = 1;
 
-      if (habit.type === 'boolean' || habit.type === 'time' || habit.type === 'options') {
-        progress = goalValue;
-      } else if (habit.type === 'number' || habit.type === 'duration') {
+      if (habit.type === 'number' || habit.type === 'duration') {
+        goalValue = parseInt(habit.goal.match(/\d+/)?.[0] || '1', 10);
         const reportedValue = Number(value);
         if (!isNaN(reportedValue)) {
           progress += reportedValue;
         }
+      } else if (habit.type === 'options') {
+        // For options, we mark as complete and store the chosen value.
+        progress = 1;
+        lastReportedValue = String(value);
+      } else { // boolean, time
+        progress = goalValue;
       }
 
       completed = progress >= goalValue;
 
-      const updatedHabit = { ...habit, progress, completed };
+      const updatedHabit: Habit = { ...habit, progress, completed, lastReportedValue };
       setHabits((prev) => prev.map((h) => (h.id === habit.id ? updatedHabit : h)));
       setReportingHabit(null);
       
       try {
-        await updateHabit(habit.id, { progress, completed });
+        await updateHabit(habit.id, { progress, completed, lastReportedValue });
         toast({ title: "Progress saved!", description: `Your progress for "${habit.name}" has been updated.`});
       } catch (error) {
          console.error("Failed to update habit:", error);
@@ -91,11 +98,11 @@ export default function DashboardPage() {
     startTransition(async () => {
       const originalHabit = { ...habit };
       // Optimistically update the UI
-      const updatedHabit = { ...habit, progress: 0, completed: false, feedback: undefined };
+      const updatedHabit = { ...habit, progress: 0, completed: false, feedback: undefined, lastReportedValue: undefined };
       setHabits((prev) => prev.map((h) => (h.id === habit.id ? updatedHabit : h)));
 
       try {
-        await updateHabit(habit.id, { progress: 0, completed: false, feedback: '' });
+        await updateHabit(habit.id, { progress: 0, completed: false, feedback: '', lastReportedValue: '' });
         toast({ title: "Habit restarted!", description: `Progress for "${habit.name}" has been reset.` });
       } catch (error) {
         console.error("Failed to restart habit:", error);

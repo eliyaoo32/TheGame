@@ -38,11 +38,11 @@ export function HabitCard({ habit, onReport, onRestart, isUpdating }: HabitCardP
   };
 
   const getStatusText = () => {
-    if (habit.type === 'options') {
-      return 'Goal: Complete one of the options';
+    if (habit.completed && habit.lastReportedValue) {
+      return `Last choice: ${habit.lastReportedValue}`;
     }
     
-    if (habit.type === 'boolean' || habit.type === 'time') {
+    if (habit.type === 'boolean' || habit.type === 'time' || habit.type === 'options') {
       return `Goal: ${habit.goal}`;
     }
 

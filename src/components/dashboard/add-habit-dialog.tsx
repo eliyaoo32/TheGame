@@ -28,7 +28,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { HabitIcon } from '@/components/habit-icon';
 
 interface AddHabitDialogProps {
-  onSave: (habit: Omit<Habit, 'id' | 'progress' | 'completed' | 'feedback'> & { id?: string }) => void;
+  onSave: (habit: Omit<Habit, 'id' | 'progress' | 'completed' | 'feedback' | 'lastReportedValue'> & { id?: string }) => void;
   habitToEdit?: Habit;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -39,8 +39,17 @@ const addHabitSchema = z.object({
   description: z.string().min(1, 'Description is required.'),
   frequency: z.enum(['daily', 'weekly']),
   type: z.enum(['duration', 'time', 'boolean', 'number', 'options']),
-  goal: z.string().min(1, 'Goal or options must be provided.'),
+  goal: z.string().min(1, 'Goal is required.'),
   icon: z.string().min(1, 'Icon is required.'),
+  options: z.string().optional(),
+}).refine(data => {
+    if (data.type === 'options') {
+        return data.options && data.options.trim().length > 0;
+    }
+    return true;
+}, {
+    message: 'Options are required for this habit type.',
+    path: ['options'],
 });
 
 type AddHabitFormValues = z.infer<typeof addHabitSchema>;
@@ -59,6 +68,7 @@ export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange }: AddH
       type: 'boolean',
       goal: '',
       icon: '',
+      options: '',
     },
   });
   
@@ -66,7 +76,10 @@ export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange }: AddH
 
   useEffect(() => {
     if (open && habitToEdit) {
-      form.reset(habitToEdit);
+      form.reset({
+        ...habitToEdit,
+        options: habitToEdit.options || '',
+      });
     } else if (open && !habitToEdit) {
       form.reset({
         name: '',
@@ -75,6 +88,7 @@ export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange }: AddH
         type: 'boolean',
         goal: '',
         icon: '',
+        options: '',
       });
     }
   }, [habitToEdit, open, form]);
@@ -109,14 +123,15 @@ export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange }: AddH
         label: 'Goal (Numeric)',
         placeholder: 'e.g., 25',
         description: 'The target number (e.g., pages, glasses of water).'
+    },
+     options: {
+        label: 'Goal',
+        placeholder: 'e.g., Eat a healthy breakfast',
+        description: 'Describe the goal you want to achieve through your choices.'
     }
   };
 
-  const currentGoalInfo = goalFieldInfo[habitType as keyof typeof goalFieldInfo] || {
-      label: 'Goal',
-      placeholder: 'e.g. 30 minutes, 20 pages',
-      description: null
-  };
+  const currentGoalInfo = goalFieldInfo[habitType as keyof typeof goalFieldInfo];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -234,58 +249,50 @@ export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange }: AddH
               />
             </div>
             
-            {habitType === 'options' ? (
-              <>
-                <FormItem>
-                  <FormLabel>Goal</FormLabel>
-                  <div className="text-sm p-3 bg-muted rounded-md text-muted-foreground border">
-                      The goal for this habit is to complete one of the options you define below.
-                  </div>
-                </FormItem>
+            <FormField
+                control={form.control}
+                name="goal"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>
+                        {currentGoalInfo.label}
+                    </FormLabel>
+                    <FormControl>
+                        <Input
+                        placeholder={currentGoalInfo.placeholder}
+                        {...field}
+                        />
+                    </FormControl>
+                    {currentGoalInfo.description && (
+                        <FormDescription>
+                        {currentGoalInfo.description}
+                        </FormDescription>
+                    )}
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+
+            {habitType === 'options' && (
                 <FormField
                   control={form.control}
-                  name="goal"
+                  name="options"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Options (comma-separated)</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="e.g. Walk, Run, Cycle"
+                          placeholder="e.g. Healthy, Junky, Skipped"
                           {...field}
                         />
                       </FormControl>
                       <FormDescription>
-                        Provide a list of options for the user to choose from.
+                        Provide the choices for this habit.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              </>
-            ) : (
-                <FormField
-                    control={form.control}
-                    name="goal"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>
-                            {currentGoalInfo.label}
-                        </FormLabel>
-                        <FormControl>
-                            <Input
-                            placeholder={currentGoalInfo.placeholder}
-                            {...field}
-                            />
-                        </FormControl>
-                        {currentGoalInfo.description && (
-                            <FormDescription>
-                            {currentGoalInfo.description}
-                            </FormDescription>
-                        )}
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
             )}
 
             <DialogFooter>

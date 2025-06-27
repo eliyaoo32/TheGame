@@ -110,7 +110,7 @@ export function ReportProgressDialog({ habit, open, onOpenChange, onSave, isSavi
           />
         );
       case 'options':
-        const options = habit.goal.split(',').map(s => s.trim());
+        const options = habit.options ? habit.options.split(',').map(s => s.trim()) : [];
         return (
            <FormField
             control={form.control}

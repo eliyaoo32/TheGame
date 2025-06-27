@@ -70,7 +70,7 @@ export default function ManageHabitsPage() {
     fetchHabits();
   }, [fetchHabits]);
 
-  const handleSaveHabit = async (savedHabitData: Omit<Habit, 'id' | 'progress' | 'completed' | 'feedback'> & { id?: string }) => {
+  const handleSaveHabit = async (savedHabitData: Omit<Habit, 'id' | 'progress' | 'completed' | 'feedback' | 'lastReportedValue'> & { id?: string }) => {
     const originalHabits = habits;
 
     try {

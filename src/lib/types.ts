@@ -9,9 +9,11 @@ export type Habit = {
   frequency: HabitFrequency;
   icon: string;
   goal: string;
+  options?: string; // For type 'options', e.g., "Healthy, Junky"
   progress: number; // The actual tracked value, NOT a percentage.
   completed: boolean;
   feedback?: string;
+  lastReportedValue?: string;
 };
 
 export type CommunityUser = {
