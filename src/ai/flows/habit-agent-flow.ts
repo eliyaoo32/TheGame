@@ -28,7 +28,7 @@ const UpdateHabitInputSchema = z.object({
 
 const AddHabitReportInputSchema = z.object({
     habitId: z.string().describe('The ID of the habit to report progress for.'),
-    value: z.any().describe('The value to report. Should be boolean for "boolean" type, string for "time", number for "duration" or "number", and a string from the available options for "options" type.'),
+    value: z.string().describe('The value to report. For "boolean" type, use "true". For "number" or "duration" types, provide the numeric value as a string. For "time", provide the time as a string in HH:MM format. For "options", provide one of the available options as a string.'),
 });
 
 // Tool Definitions
@@ -61,14 +61,19 @@ const addHabitReportTool = ai.defineTool({
 }, async ({ habitId, value }) => {
     // Ensure numeric values are stored as numbers for consistency.
     const habit = await habitService.getHabitById(habitId);
-    let parsedValue = value;
+    let parsedValue: string | number | boolean = value;
 
-    if (habit && (habit.type === 'number' || habit.type === 'duration')) {
-        const num = parseFloat(value);
-        if (!isNaN(num)) {
-            parsedValue = num;
+    if (habit) {
+        if (habit.type === 'number' || habit.type === 'duration') {
+            const num = parseFloat(value);
+            if (!isNaN(num)) {
+                parsedValue = num;
+            }
+        } else if (habit.type === 'boolean') {
+            parsedValue = true;
         }
     }
+    
     await habitService.addHabitReport(habitId, parsedValue);
     return { success: true };
 });
@@ -98,7 +103,7 @@ const prompt = ai.definePrompt({
     And here are their categories:
     {{json categories}}
 
-    - When a user wants to report progress, find the correct habit ID from the list and use the 'addHabitReport' tool. For boolean habits, the value is just 'true'. If a numeric value is provided (e.g. "read 10 pages"), use that number.
+    - When a user wants to report progress, find the correct habit ID from the list and use the 'addHabitReport' tool. The value should be provided as a string. For example, for a boolean habit, use the string "true". If a numeric value is provided (e.g., "read 10 pages"), use the string "10". For time-based habits, use HH:MM format.
     - When a user wants to create a habit, use the 'addHabit' tool. Infer the parameters from the user's request. Choose an appropriate icon from this list: ['Dumbbell', 'Leaf', 'Carrot', 'BookOpen', 'GraduationCap', 'Languages', 'FolderKanban', 'Target', 'Clock']. If the user specifies a category, find its ID from the categories list.
     - When a user wants to modify a habit, find the habit ID and use the 'updateHabit' tool.
     - If a request is ambiguous (e.g., "update my running habit" when multiple exist), ask for clarification.
