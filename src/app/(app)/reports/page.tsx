@@ -126,18 +126,42 @@ export default function ReportsPage() {
     const grid: (Date | null)[] = Array(startingDayIndex).fill(null);
     grid.push(...daysInMonth);
     
-    const reportsMap = new Map<string, { habit: Habit, report: HabitReport }[]>();
+    // Map<dayKey, Map<habitId, { habit, aggregatedValue }>>
+    const aggregatedReportsByDay = new Map<string, Map<string, { habit: Habit; value: any }>>();
+
     habits.forEach(habit => {
         habit.reports.forEach(report => {
             const dayKey = format(report.reportedAt, 'yyyy-MM-dd');
-            if (!reportsMap.has(dayKey)) {
-                reportsMap.set(dayKey, []);
+
+            if (!aggregatedReportsByDay.has(dayKey)) {
+                aggregatedReportsByDay.set(dayKey, new Map());
             }
-            reportsMap.get(dayKey)!.push({ habit, report });
+            const dayReports = aggregatedReportsByDay.get(dayKey)!;
+
+            if (dayReports.has(habit.id)) {
+                const existingEntry = dayReports.get(habit.id)!;
+                if (habit.type === 'number' || habit.type === 'duration') {
+                    existingEntry.value = (Number(existingEntry.value) || 0) + (Number(report.value) || 0);
+                } else {
+                    // For boolean, time, options: last one wins
+                    existingEntry.value = report.value;
+                }
+            } else {
+                dayReports.set(habit.id, {
+                    habit: habit,
+                    value: report.value
+                });
+            }
         });
     });
 
-    return { calendarGrid: grid, reportsByDate: reportsMap };
+    // Convert inner map to array for easier rendering
+    const finalReportsByDate = new Map<string, { habit: Habit; value: any; }[]>();
+    for (const [dayKey, dayReportsMap] of aggregatedReportsByDay.entries()) {
+        finalReportsByDate.set(dayKey, Array.from(dayReportsMap.values()));
+    }
+
+    return { calendarGrid: grid, reportsByDate: finalReportsByDate };
   }, [selectedMonth, habits, activeTab]);
 
   const weeks = useMemo(() => {
@@ -255,13 +279,13 @@ export default function ReportsPage() {
                                                                 {getDate(day)}
                                                             </div>
                                                             <div className="space-y-1 mt-1">
-                                                                {reportsForDay.map(({ habit, report }) => (
-                                                                    <div key={report.id} className="p-1 rounded-md bg-secondary/50 text-secondary-foreground text-xs leading-tight">
+                                                                {reportsForDay.map(({ habit, value }) => (
+                                                                    <div key={habit.id} className="p-1 rounded-md bg-secondary/50 text-secondary-foreground text-xs leading-tight">
                                                                         <div className="flex items-start gap-1.5">
                                                                             <HabitIcon name={habit.icon} className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                                                                             <div>
                                                                                 <p className="font-medium">{habit.name}</p>
-                                                                                <p className="text-muted-foreground">Value: {report.value}</p>
+                                                                                <p className="text-muted-foreground">Value: {value}</p>
                                                                             </div>
                                                                         </div>
                                                                     </div>
