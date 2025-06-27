@@ -6,7 +6,6 @@ import { ChatReporter } from '@/components/dashboard/chat-reporter';
 import { DashboardSummary } from '@/components/dashboard/dashboard-summary';
 import type { Habit } from '@/lib/types';
 import { getHabits, updateHabit } from '@/services/habits';
-import { getHabitFeedback } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ReportProgressDialog } from '@/components/dashboard/report-progress-dialog';
@@ -76,29 +75,6 @@ export default function DashboardPage() {
       try {
         await updateHabit(habit.id, { progress, completed });
         toast({ title: "Progress saved!", description: `Your progress for "${habit.name}" has been updated.`});
-
-        // If the habit is now completed and wasn't before, get AI feedback.
-        if (completed && !habit.completed) {
-            const result = await getHabitFeedback({
-              habitName: updatedHabit.name,
-              description: updatedHabit.description,
-              habitType: updatedHabit.type,
-              habitFrequency: updatedHabit.frequency,
-              habitGoal: updatedHabit.goal,
-              habitStatus: updatedHabit.completed,
-            });
-
-            if (result.success && result.feedback) {
-              await updateHabit(habit.id, { feedback: result.feedback });
-              setHabits((prev) =>
-                prev.map((h) =>
-                  h.id === habit.id ? { ...updatedHabit, feedback: result.feedback } : h
-                )
-              );
-            } else if (!result.success) {
-                toast({ variant: 'destructive', title: 'AI Feedback Error', description: result.error });
-            }
-        }
       } catch (error) {
          console.error("Failed to update habit:", error);
          toast({ variant: 'destructive', title: 'Error', description: 'Could not save your progress.' });
