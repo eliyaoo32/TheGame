@@ -11,8 +11,8 @@ export function AppSidebar({ className }: { className?: string }) {
   
   const navItems = [
     { href: '/', icon: Home, label: 'Dashboard' },
-    { href: '/manage-habits', icon: Settings, label: 'Manage Habits' },
     { href: '/reports', icon: BarChartHorizontal, label: 'Reports' },
+    { href: '/manage-habits', icon: Settings, label: 'Manage Habits' },
   ];
 
   return (
