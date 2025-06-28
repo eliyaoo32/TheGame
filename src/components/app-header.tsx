@@ -1,8 +1,6 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { signOut } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 import { useAuth } from '@/context/auth-provider';
 import {
   LogOut,
@@ -24,13 +22,13 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 
 export function AppHeader() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      await signOut();
       router.push('/login');
       toast({
         title: 'Signed out',

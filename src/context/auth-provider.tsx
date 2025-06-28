@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, createContext, useContext } from 'react';
-import { onAuthStateChanged, type User } from 'firebase/auth';
+import { onAuthStateChanged, signOut as firebaseSignOut, type User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
 // A mock user object that matches the Firebase User type shape
@@ -56,12 +56,14 @@ type AuthContextType = {
   user: User | null;
   loading: boolean;
   signInWithTestUser: () => void;
+  signOut: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   signInWithTestUser: () => {},
+  signOut: async () => {},
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -70,7 +72,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isTestUser, setIsTestUser] = useState(false);
 
   useEffect(() => {
-    if (isTestUser) return;
+    if (isTestUser) {
+        setLoading(false);
+        return;
+    };
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
@@ -84,9 +89,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(mockUser);
     setLoading(false);
   };
+  
+  const signOut = async () => {
+    if (isTestUser) {
+        setUser(null);
+        setIsTestUser(false);
+    } else {
+        await firebaseSignOut(auth);
+    }
+  }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signInWithTestUser }}>
+    <AuthContext.Provider value={{ user, loading, signInWithTestUser, signOut }}>
       {children}
     </AuthContext.Provider>
   );
