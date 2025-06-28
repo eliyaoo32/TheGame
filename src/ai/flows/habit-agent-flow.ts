@@ -103,16 +103,24 @@ const prompt = ai.definePrompt({
     }) },
     output: { schema: HabitAgentOutputSchema },
     tools: [addHabitTool, updateHabitTool, addHabitReportTool],
-    prompt: `You are a task-oriented AI assistant for a habit tracking app. Your ONLY purpose is to translate the user's natural language request into a function call using the provided tools.
+    config: {
+        safetySettings: [
+            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+        ],
+    },
+    prompt: `You are a task-oriented AI assistant for a habit tracking app. Your ONLY purpose is to translate the user's natural language request into one or more function calls using the provided tools. If the user asks to create multiple items (e.g., habits), you should call the appropriate tool for each one.
 
     - Analyze the user's request.
-    - Based on the request, decide which tool to use.
+    - Based on the request, decide which tool(s) to use. You can call tools multiple times.
     - Extract all necessary parameters for the tool from the request and the context below.
     - **You MUST pass the user ID '{{userId}}' to the 'userId' parameter for every tool call.**
     - **Pay close attention to dates. If the user mentions a specific day like "yesterday", "on Tuesday", or a date like "July 5th", you MUST calculate the correct date in 'YYYY-MM-DD' format and pass it to the 'date' parameter. Today's date is {{currentDate}}. If no date is mentioned, do not pass a date.**
-    - If you have all the information, call the tool.
+    - If you have all the information, call the tool(s).
     - If the request is ambiguous or you are missing information, ask the user for clarification. Do not try to guess.
-    - After a tool is successfully called, you will receive its output. Summarize this result for the user in a friendly, concise message.
+    - After a tool is successfully called, you will receive its output. Summarize this result for the user in a friendly, concise message. If multiple tools were called, summarize all the actions taken.
 
     **CONTEXT**
 
@@ -178,6 +186,13 @@ const habitAgentFlow = ai.defineFlow(
     const currentDate = new Date().toISOString().split('T')[0];
 
     const { output } = await prompt({ query, userId, habits, categories, currentDate });
-    return output!;
+    
+    if (!output) {
+      return {
+        message:
+          'The AI assistant was unable to process the request. This might be due to safety filters or an overly complex command. Please try simplifying your request.',
+      };
+    }
+    return output;
   }
 );
