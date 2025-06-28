@@ -1,27 +1,33 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useTransition, useMemo } from 'react';
-import { HabitCard } from '@/components/dashboard/habit-card';
+import { format, isToday } from 'date-fns';
+import { Calendar as CalendarIcon } from 'lucide-react';
 import type { Habit, HabitReport } from '@/lib/types';
 import { getHabits, addHabitReport, deleteHabitReportsForPeriod } from '@/services/habits';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ReportProgressDialog } from '@/components/dashboard/report-progress-dialog';
 import { AIAgentBar } from '@/components/dashboard/ai-agent-bar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 
 export default function DashboardPage() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
   const [reportingHabit, setReportingHabit] = useState<Habit | null>(null);
   const [updatingHabitId, setUpdatingHabitId] = useState<string | null>(null);
-  const [currentDate, setCurrentDate] = useState('');
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
-  const fetchHabits = useCallback(async () => {
+  const fetchHabits = useCallback(async (dateToFetch: Date) => {
     setLoading(true);
     try {
-      const fetchedHabits = await getHabits();
+      const fetchedHabits = await getHabits(dateToFetch);
       setHabits(fetchedHabits);
     } catch (error) {
       console.error("Failed to fetch habits:", error);
@@ -36,18 +42,8 @@ export default function DashboardPage() {
   }, [toast]);
 
   useEffect(() => {
-    fetchHabits();
-  }, [fetchHabits]);
-
-  useEffect(() => {
-    // This runs only on the client, after hydration
-    setCurrentDate(new Date().toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    }));
-  }, []);
+    fetchHabits(selectedDate);
+  }, [fetchHabits, selectedDate]);
 
   const handleSaveProgress = (habit: Habit, value: any) => {
     setUpdatingHabitId(habit.id);
@@ -56,7 +52,7 @@ export default function DashboardPage() {
       const newReport: HabitReport = {
         id: `temp-${Date.now()}`,
         value: value,
-        reportedAt: new Date(),
+        reportedAt: selectedDate,
       };
 
       const updatedReports = [...habit.reports, newReport];
@@ -87,14 +83,14 @@ export default function DashboardPage() {
       setReportingHabit(null);
       
       try {
-        await addHabitReport(habit.id, value);
-        await fetchHabits(); // Refetch to get the latest state from the server
+        await addHabitReport(habit.id, value, selectedDate);
+        await fetchHabits(selectedDate); // Refetch to get the latest state from the server
         toast({ title: "Progress saved!", description: `Your progress for "${habit.name}" has been updated.`});
       } catch (error) {
          console.error("Failed to update habit:", error);
          toast({ variant: 'destructive', title: 'Error', description: 'Could not save your progress.' });
          // Revert optimistic update by refetching everything
-         fetchHabits();
+         fetchHabits(selectedDate);
       } finally {
         setUpdatingHabitId(null);
       }
@@ -110,8 +106,9 @@ export default function DashboardPage() {
       setHabits((prev) => prev.map((h) => (h.id === habit.id ? updatedHabit : h)));
 
       try {
-        await deleteHabitReportsForPeriod(habit.id, habit.frequency);
+        await deleteHabitReportsForPeriod(habit.id, habit.frequency, selectedDate);
         toast({ title: "Habit restarted!", description: `Progress for "${habit.name}" has been reset for this period.` });
+        await fetchHabits(selectedDate); // Refetch to confirm
       } catch (error) {
         console.error("Failed to restart habit:", error);
         toast({ variant: 'destructive', title: 'Error', description: 'Could not restart habit.' });
@@ -150,14 +147,42 @@ export default function DashboardPage() {
   return (
     <>
       <div className="flex flex-col gap-6">
-        <AIAgentBar onSuccess={fetchHabits} />
-        <div className="flex items-center">
+        <AIAgentBar onSuccess={() => fetchHabits(selectedDate)} />
+        <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-semibold md:text-2xl font-headline">
               Dashboard
             </h1>
-            <p className="text-sm text-muted-foreground">{currentDate}</p>
+            <p className="text-sm text-muted-foreground">
+                {isToday(selectedDate)
+                    ? "Showing progress for today."
+                    : `Showing progress for ${format(selectedDate, "PPP")}.`
+                }
+            </p>
           </div>
+           <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={"outline"}
+                className={cn(
+                  "w-[280px] justify-start text-left font-normal",
+                  !selectedDate && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(day) => day && setSelectedDate(day)}
+                disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
         </div>
 
         {loading ? (

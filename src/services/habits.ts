@@ -70,7 +70,7 @@ const mapDocToHabit = (doc: QueryDocumentSnapshot<DocumentData, DocumentData>): 
     } as Omit<Habit, 'reports' | 'progress' | 'completed' | 'lastReportedValue' | 'categoryName'>;
 };
 
-export const getHabits = async (): Promise<Habit[]> => {
+export const getHabits = async (date: Date): Promise<Habit[]> => {
   try {
     const [habitsSnapshot, categoriesSnapshot] = await Promise.all([
         getDocs(query(habitsCollectionRef)),
@@ -86,13 +86,12 @@ export const getHabits = async (): Promise<Habit[]> => {
 
     const habitsWithReports = await Promise.all(
       habitsData.map(async (habit) => {
-        const now = new Date();
         let startDate: Date;
 
         if (habit.frequency === 'daily') {
-          startDate = startOfDay(now);
+          startDate = startOfDay(date);
         } else { // weekly
-          startDate = startOfWeek(now, { weekStartsOn: 0 }); // 0 for Sunday
+          startDate = startOfWeek(date, { weekStartsOn: 0 }); // 0 for Sunday
         }
         
         const reportsCollectionRef = collection(db, 'users', userId, 'habits', habit.id, 'reports');
@@ -178,10 +177,10 @@ export const addHabit = async (habitData: Omit<Habit, 'id' | 'progress' | 'compl
   return docRef.id;
 };
 
-export const addHabitReport = async (habitId: string, value: any) => {
+export const addHabitReport = async (habitId: string, value: any, date: Date = new Date()) => {
     const report = {
         value,
-        reportedAt: Timestamp.now(),
+        reportedAt: Timestamp.fromDate(date),
     };
     const reportsCollectionRef = collection(db, 'users', userId, 'habits', habitId, 'reports');
     await addDoc(reportsCollectionRef, report);
@@ -208,14 +207,13 @@ export const deleteHabit = async (habitId: string) => {
   await deleteDoc(habitDoc);
 };
 
-export const deleteHabitReportsForPeriod = async (habitId: string, frequency: HabitFrequency) => {
-  const now = new Date();
+export const deleteHabitReportsForPeriod = async (habitId: string, frequency: HabitFrequency, date: Date = new Date()) => {
   let startDate: Date;
 
   if (frequency === 'daily') {
-    startDate = startOfDay(now);
+    startDate = startOfDay(date);
   } else { // weekly
-    startDate = startOfWeek(now, { weekStartsOn: 0 }); // 0 for Sunday
+    startDate = startOfWeek(date, { weekStartsOn: 0 }); // 0 for Sunday
   }
 
   const reportsCollectionRef = collection(db, 'users', userId, 'habits', habitId, 'reports');
