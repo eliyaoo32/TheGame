@@ -462,7 +462,11 @@ export const getUniqueReportMonths = async (userId: string): Promise<Date[]> => 
         const reportsCollectionRef = collection(db, 'users', userId, 'habits', habitDoc.id, 'reports');
         const reportsSnapshot = await getDocs(query(reportsCollectionRef));
         reportsSnapshot.forEach(reportDoc => {
-            allReportsTimestamps.push(reportDoc.data().reportedAt as Timestamp);
+            const reportedAt = reportDoc.data().reportedAt;
+            // Check if reportedAt is a valid Firestore Timestamp before pushing
+            if (reportedAt && typeof reportedAt.toDate === 'function') {
+                allReportsTimestamps.push(reportedAt as Timestamp);
+            }
         });
     }
 
@@ -513,11 +517,13 @@ export const getHabitsWithLastWeekReports = async (userId: string): Promise<{hab
 
             reportsSnapshot.docs.forEach(doc => {
                 const data = doc.data();
-                allReports.push({
-                    habitName: habit.name,
-                    value: data.value,
-                    reportedAt: format((data.reportedAt as Timestamp).toDate(), 'yyyy-MM-dd'),
-                });
+                if (data.reportedAt && typeof data.reportedAt.toDate === 'function') {
+                    allReports.push({
+                        habitName: habit.name,
+                        value: data.value,
+                        reportedAt: format((data.reportedAt as Timestamp).toDate(), 'yyyy-MM-dd'),
+                    });
+                }
             });
         }
         
