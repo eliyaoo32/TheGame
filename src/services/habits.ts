@@ -16,7 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Habit, HabitFrequency, HabitReport, Category } from '@/lib/types';
-import { startOfDay, startOfWeek, startOfMonth, endOfMonth, format, parse, endOfWeek } from 'date-fns';
+import { startOfDay, startOfWeek, startOfMonth, endOfMonth, format, parse, endOfWeek, endOfDay } from 'date-fns';
 
 // Hardcoded user ID for now, until we have authentication
 const userId = 'test-user';
@@ -87,15 +87,22 @@ export const getHabits = async (date: Date): Promise<Habit[]> => {
     const habitsWithReports = await Promise.all(
       habitsData.map(async (habit) => {
         let startDate: Date;
+        let endDate: Date;
 
         if (habit.frequency === 'daily') {
           startDate = startOfDay(date);
+          endDate = endOfDay(date);
         } else { // weekly
           startDate = startOfWeek(date, { weekStartsOn: 0 }); // 0 for Sunday
+          endDate = endOfWeek(date, { weekStartsOn: 0 });
         }
         
         const reportsCollectionRef = collection(db, 'users', userId, 'habits', habit.id, 'reports');
-        const reportsQuery = query(reportsCollectionRef, where('reportedAt', '>=', startDate));
+        const reportsQuery = query(
+            reportsCollectionRef,
+            where('reportedAt', '>=', startDate),
+            where('reportedAt', '<=', endDate)
+        );
         const reportsSnapshot = await getDocs(reportsQuery);
 
         const reports: HabitReport[] = reportsSnapshot.docs.map(doc => {
@@ -209,15 +216,22 @@ export const deleteHabit = async (habitId: string) => {
 
 export const deleteHabitReportsForPeriod = async (habitId: string, frequency: HabitFrequency, date: Date = new Date()) => {
   let startDate: Date;
+  let endDate: Date;
 
   if (frequency === 'daily') {
     startDate = startOfDay(date);
+    endDate = endOfDay(date);
   } else { // weekly
     startDate = startOfWeek(date, { weekStartsOn: 0 }); // 0 for Sunday
+    endDate = endOfWeek(date, { weekStartsOn: 0 });
   }
 
   const reportsCollectionRef = collection(db, 'users', userId, 'habits', habitId, 'reports');
-  const q = query(reportsCollectionRef, where('reportedAt', '>=', startDate));
+  const q = query(
+    reportsCollectionRef,
+    where('reportedAt', '>=', startDate),
+    where('reportedAt', '<=', endDate)
+  );
   
   const snapshot = await getDocs(q);
   if (snapshot.empty) {
