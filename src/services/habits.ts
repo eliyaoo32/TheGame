@@ -428,3 +428,16 @@ export const getUniqueReportMonths = async (userId: string): Promise<Date[]> => 
         .map(ym => parse(ym, 'yyyy-MM', new Date()))
         .sort((a, b) => b.getTime() - a.getTime());
 };
+
+export const updateHabitsCategory = async (userId: string, habitIds: string[], categoryId: string) => {
+    if (!userId || habitIds.length === 0) return;
+
+    const batch = writeBatch(db);
+
+    habitIds.forEach(habitId => {
+        const habitDocRef = doc(db, 'users', userId, 'habits', habitId);
+        batch.update(habitDocRef, { categoryId });
+    });
+
+    await batch.commit();
+};

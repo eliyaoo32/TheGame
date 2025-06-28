@@ -35,12 +35,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import { AddHabitDialog } from '@/components/dashboard/add-habit-dialog';
 import { AddCategoryDialog } from '@/components/dashboard/add-category-dialog';
+import { UpdateCategoryDialog } from '@/components/dashboard/update-category-dialog';
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/auth-provider';
-import { getHabitDefinitions, addHabit, updateHabit, deleteHabit, getCategories, addCategory, updateCategory, deleteCategory } from '@/services/habits';
+import { getHabitDefinitions, addHabit, updateHabit, deleteHabit, getCategories, addCategory, updateCategory, deleteCategory, updateHabitsCategory } from '@/services/habits';
 import { Skeleton } from '@/components/ui/skeleton';
 import { HabitIcon } from '@/components/habit-icon';
 
@@ -49,6 +51,7 @@ export default function ManageHabitsPage() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedHabits, setSelectedHabits] = useState<string[]>([]);
 
   // Habit Dialog State
   const [habitToEdit, setHabitToEdit] = useState<Habit | undefined>(undefined);
@@ -61,6 +64,7 @@ export default function ManageHabitsPage() {
   const [isAddCategoryDialogOpen, setAddCategoryDialogOpen] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
   const [isDeleteCategoryDialogOpen, setDeleteCategoryDialogOpen] = useState(false);
+  const [isUpdateCategoryDialogOpen, setUpdateCategoryDialogOpen] = useState(false);
 
   const { toast } = useToast();
 
@@ -88,6 +92,10 @@ export default function ManageHabitsPage() {
       fetchData();
     }
   }, [fetchData, user]);
+
+  useEffect(() => {
+    setSelectedHabits([]);
+  }, [habits]);
 
   const categoryMap = useMemo(() => {
     return new Map(categories.map(c => [c.id, c.name]));
@@ -131,6 +139,28 @@ export default function ManageHabitsPage() {
   const handleAddHabitDialogStateChange = (open: boolean) => {
     setAddHabitDialogOpen(open);
     if (!open) setHabitToEdit(undefined);
+  };
+  
+  const handleUpdateCategory = async (categoryId: string) => {
+    if (!user || selectedHabits.length === 0) return;
+    try {
+      await updateHabitsCategory(user.uid, selectedHabits, categoryId);
+      toast({
+        title: 'Habits updated!',
+        description: `Category updated for ${selectedHabits.length} habit${selectedHabits.length > 1 ? 's' : ''}.`,
+      });
+      setSelectedHabits([]);
+      fetchData();
+    } catch (error) {
+      console.error('Failed to update categories:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to update habit categories.',
+      });
+    } finally {
+      setUpdateCategoryDialogOpen(false);
+    }
   };
 
   // ========== CATEGORY HANDLERS ==========
@@ -185,15 +215,35 @@ export default function ManageHabitsPage() {
             <CardHeader>
               <CardTitle>Your Habits</CardTitle>
               <CardDescription>Create, view, edit, and delete your habits.</CardDescription>
-              <Button size="sm" className="h-8 gap-1 w-fit" onClick={() => setAddHabitDialogOpen(true)}>
-                <PlusCircle className="h-3.5 w-3.5" />
-                <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">Create Habit</span>
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button size="sm" className="h-8 gap-1" onClick={() => setAddHabitDialogOpen(true)}>
+                  <PlusCircle className="h-3.5 w-3.5" />
+                  <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">Create Habit</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1"
+                  disabled={selectedHabits.length === 0}
+                  onClick={() => setUpdateCategoryDialogOpen(true)}
+                >
+                  Update Category ({selectedHabits.length})
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">
+                       <Checkbox
+                        checked={habits.length > 0 && selectedHabits.length === habits.length}
+                        onCheckedChange={(checked) => {
+                          setSelectedHabits(checked ? habits.map((h) => h.id) : []);
+                        }}
+                        aria-label="Select all"
+                      />
+                    </TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead className="hidden md:table-cell">Frequency</TableHead>
@@ -206,6 +256,7 @@ export default function ManageHabitsPage() {
                   {loading ? (
                     Array.from({ length: 4 }).map((_, i) => (
                       <TableRow key={i}>
+                        <TableCell><Skeleton className="h-4 w-4" /></TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Skeleton className="h-4 w-4" />
@@ -219,7 +270,20 @@ export default function ManageHabitsPage() {
                     ))
                   ) : habits.length > 0 ? (
                     habits.map(habit => (
-                      <TableRow key={habit.id}>
+                      <TableRow key={habit.id} data-state={selectedHabits.includes(habit.id) && 'selected'}>
+                        <TableCell>
+                           <Checkbox
+                            checked={selectedHabits.includes(habit.id)}
+                            onCheckedChange={(checked) => {
+                              setSelectedHabits((prev) =>
+                                checked
+                                  ? [...prev, habit.id]
+                                  : prev.filter((id) => id !== habit.id)
+                              );
+                            }}
+                            aria-label={`Select habit ${habit.name}`}
+                          />
+                        </TableCell>
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
                             <HabitIcon name={habit.icon} className="h-4 w-4 text-muted-foreground" />
@@ -240,7 +304,7 @@ export default function ManageHabitsPage() {
                       </TableRow>
                     ))
                   ) : (
-                    <TableRow><TableCell colSpan={4} className="h-24 text-center">No habits found.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={5} className="h-24 text-center">No habits found.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -301,6 +365,13 @@ export default function ManageHabitsPage() {
 
       <AddHabitDialog open={isAddHabitDialogOpen} onOpenChange={handleAddHabitDialogStateChange} onSave={handleSaveHabit} habitToEdit={habitToEdit} categories={categories} />
       <AddCategoryDialog open={isAddCategoryDialogOpen} onOpenChange={handleAddCategoryDialogStateChange} onSave={handleSaveCategory} categoryToEdit={categoryToEdit} />
+      <UpdateCategoryDialog
+        open={isUpdateCategoryDialogOpen}
+        onOpenChange={setUpdateCategoryDialogOpen}
+        onUpdate={handleUpdateCategory}
+        categories={categories}
+        selectedCount={selectedHabits.length}
+      />
 
       <AlertDialog open={isDeleteHabitDialogOpen} onOpenChange={setDeleteHabitDialogOpen}>
         <AlertDialogContent>
