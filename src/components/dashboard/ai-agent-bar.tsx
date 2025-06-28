@@ -83,7 +83,7 @@ export function AIAgentBar({ onSuccess }: AIAgentBarProps) {
               render={({ field }) => (
                 <FormItem className="flex-grow">
                   <FormControl>
-                    <Input placeholder="Type your command here..." {...field} />
+                    <Input placeholder="Type your command here..." {...field} disabled={isPending} />
                   </FormControl>
                 </FormItem>
               )}
