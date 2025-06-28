@@ -49,10 +49,15 @@ export default function LoginPage() {
       }
       
       console.error('Error signing in with Google:', error);
+      let description = 'Could not sign in with Google. Please try again.';
+      if (error.code === 'auth/unauthorized-domain') {
+        description = "This app's domain is not authorized for sign-in. Please go to your Firebase project's Authentication settings and add it to the list of authorized domains.";
+      }
+      
       toast({
         variant: 'destructive',
         title: 'Sign-in failed',
-        description: 'Could not sign in with Google. Please try again.',
+        description: description,
       });
       setIsSigningIn(false);
     }
