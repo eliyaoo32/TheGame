@@ -7,8 +7,6 @@ import { useAuth } from '@/context/auth-provider';
 import {
   LogOut,
   Menu,
-  Settings,
-  LifeBuoy
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -19,7 +17,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuGroup,
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { AppSidebar } from './app-sidebar';
@@ -80,17 +77,6 @@ export function AppHeader() {
                     <p className="font-semibold">{user?.displayName}</p>
                     <p className="text-xs text-muted-foreground font-normal">{user?.email}</p>
                 </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                    <DropdownMenuItem>
-                        <Settings className="mr-2 h-4 w-4" />
-                        <span>Settings</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                        <LifeBuoy className="mr-2 h-4 w-4" />
-                        <span>Support</span>
-                    </DropdownMenuItem>
-                </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="mr-2 h-4 w-4" />
