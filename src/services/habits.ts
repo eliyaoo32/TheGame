@@ -70,6 +70,43 @@ const mapDocToHabit = (doc: QueryDocumentSnapshot<DocumentData, DocumentData>): 
     } as Omit<Habit, 'reports' | 'progress' | 'completed' | 'lastReportedValue' | 'categoryName'>;
 };
 
+// This function will fetch habits without their report/progress details.
+// Ideal for management pages where we just need the list.
+export const getHabitDefinitions = async (): Promise<Habit[]> => {
+  try {
+    const [habitsSnapshot, categoriesSnapshot] = await Promise.all([
+      getDocs(query(habitsCollectionRef)),
+      getDocs(query(categoriesCollectionRef)),
+    ]);
+
+    const categoriesMap = new Map<string, string>();
+    categoriesSnapshot.docs.forEach(doc => {
+      categoriesMap.set(doc.id, doc.data().name);
+    });
+
+    const habitsData = habitsSnapshot.docs.map(doc => {
+      const baseHabit = mapDocToHabit(doc);
+      return {
+        ...baseHabit,
+        // Add default values to satisfy the Habit type for the UI
+        reports: [],
+        progress: 0,
+        completed: false,
+        categoryName: baseHabit.categoryId ? categoriesMap.get(baseHabit.categoryId) : undefined,
+      } as Habit;
+    });
+
+    return habitsData;
+  } catch (error) {
+    console.error("Error fetching habit definitions: ", error);
+    if (error instanceof Error && error.message.includes('permission-denied')) {
+      console.error("Firestore permission denied. Check your Firestore security rules and ensure the API keys in .env are correct.");
+    }
+    return [];
+  }
+};
+
+
 export const getHabits = async (date: Date): Promise<Habit[]> => {
   try {
     const [habitsSnapshot, categoriesSnapshot] = await Promise.all([

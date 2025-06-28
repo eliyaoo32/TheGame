@@ -39,7 +39,7 @@ import { AddHabitDialog } from '@/components/dashboard/add-habit-dialog';
 import { AddCategoryDialog } from '@/components/dashboard/add-category-dialog';
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getHabits, addHabit, updateHabit, deleteHabit, getCategories, addCategory, updateCategory, deleteCategory } from '@/services/habits';
+import { getHabitDefinitions, addHabit, updateHabit, deleteHabit, getCategories, addCategory, updateCategory, deleteCategory } from '@/services/habits';
 import { Skeleton } from '@/components/ui/skeleton';
 import { HabitIcon } from '@/components/habit-icon';
 
@@ -65,7 +65,7 @@ export default function ManageHabitsPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [fetchedHabits, fetchedCategories] = await Promise.all([getHabits(), getCategories()]);
+      const [fetchedHabits, fetchedCategories] = await Promise.all([getHabitDefinitions(), getCategories()]);
       setHabits(fetchedHabits);
       setCategories(fetchedCategories);
     } catch (error) {
