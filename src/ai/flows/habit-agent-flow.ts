@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI agent for managing habits.
@@ -61,23 +62,8 @@ const addHabitReportTool = ai.defineTool({
     }).merge(UserScopedInputSchema),
     outputSchema: z.object({ success: z.boolean() }),
 }, async ({ userId, habitId, value, date }) => {
-    const habit = await habitService.getHabitById(userId, habitId);
-    let parsedValue: string | number | boolean = value;
-
-    if (habit) {
-        if (habit.type === 'number' || habit.type === 'duration') {
-            const num = parseFloat(value);
-            if (!isNaN(num)) {
-                parsedValue = num;
-            }
-        } else if (habit.type === 'boolean') {
-            parsedValue = true;
-        }
-    }
-    
     const reportDate = date ? new Date(`${date}T12:00:00Z`) : new Date();
-
-    await habitService.addHabitReport(userId, habitId, parsedValue, reportDate);
+    await habitService.addHabitReport(userId, habitId, value, reportDate);
     return { success: true };
 });
 
@@ -184,8 +170,6 @@ const habitAgentFlow = ai.defineFlow(
     outputSchema: HabitAgentOutputSchema,
   },
   async ({ query, userId }) => {
-    // NOTE: Tool definitions have been moved to the top level of the module.
-
     const [habits, categories] = await Promise.all([
         habitService.getHabitDefinitions(userId),
         habitService.getCategories(userId),

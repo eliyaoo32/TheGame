@@ -230,8 +230,52 @@ export const addHabit = async (userId: string, habitData: Partial<Omit<Habit, 'i
 };
 
 export const addHabitReport = async (userId: string, habitId: string, value: any, date: Date = new Date()) => {
+    const habit = await getHabitById(userId, habitId);
+    if (!habit) {
+        throw new Error(`Habit with ID ${habitId} not found.`);
+    }
+
+    let validatedValue: string | number | boolean = value;
+    let validationError: string | null = null;
+
+    switch (habit.type) {
+        case 'boolean':
+            if (value === true || value === 'true') {
+                validatedValue = true;
+            } else {
+                validationError = `Invalid value for boolean habit. Expected 'true', received ${value}.`;
+            }
+            break;
+        case 'number':
+        case 'duration':
+            const num = Number(value);
+            if (isNaN(num)) {
+                validationError = `Invalid value for ${habit.type} habit. Expected a number, but received "${value}".`;
+            } else {
+                validatedValue = num;
+            }
+            break;
+        case 'time':
+            if (typeof value !== 'string' || !/^\d{2}:\d{2}$/.test(value)) {
+                validationError = `Invalid value for time habit. Expected a string in HH:MM format, but received "${value}".`;
+            }
+            break;
+        case 'options':
+            const options = habit.options?.split(',').map(o => o.trim());
+            if (!options || !options.includes(String(value))) {
+                validationError = `Invalid value for options habit. Received "${value}", but expected one of [${options?.join(', ')}].`;
+            }
+            break;
+        default:
+            validationError = `Unknown habit type: ${habit.type}`;
+    }
+
+    if (validationError) {
+        throw new Error(validationError);
+    }
+    
     const report = {
-        value,
+        value: validatedValue,
         reportedAt: Timestamp.fromDate(date),
     };
     const reportsCollectionRef = collection(db, 'users', userId, 'habits', habitId, 'reports');
