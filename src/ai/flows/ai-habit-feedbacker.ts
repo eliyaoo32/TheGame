@@ -33,7 +33,7 @@ const AiHabitFeedbackerInputSchema = z.object({
 export type AiHabitFeedbackerInput = z.infer<typeof AiHabitFeedbackerInputSchema>;
 
 const AiHabitFeedbackerOutputSchema = z.object({
-  feedback: z.string().describe('Personalized, encouraging, and actionable feedback for the user.'),
+  feedback: z.string().describe('Personalized, encouraging, and actionable feedback for the user, formatted as a bulleted list.'),
 });
 export type AiHabitFeedbackerOutput = z.infer<typeof AiHabitFeedbackerOutputSchema>;
 
@@ -68,19 +68,21 @@ The user has not reported any progress in the last 7 days.
 {{/if}}
 
 Your Task:
-Based on all the information above, write one or two paragraphs of feedback for the user. Be insightful and look for patterns.
+Based on all the information above, generate a concise list of 2-4 bullet points of feedback for the user. Start with a brief, friendly greeting that acknowledges the time of day.
 
-- Acknowledge the current day and time of day (e.g., "Good morning! It's the start of a new week...").
+- Each bullet point should be a single, insightful observation.
+- Look for patterns.
 - If they are doing well on their habits, congratulate them and encourage them to keep up the momentum.
 - If they are falling behind on weekly goals, gently remind them and suggest a plan. For example, if a "4 times a week" habit has only been done once by Wednesday, point this out.
-- If they haven't reported anything, give them a gentle nudge to get started.
+- If they haven't reported anything for a while, give them a gentle nudge to get started.
 - Be positive, supportive, and motivating. Avoid being judgmental or overly critical.
+- Start each bullet point with a '-' character.
 
-Example Feedback Points:
-- "We are on Wednesday, you have trained only once this week. If you don't train every day until the end of the week, you will not achieve your weekly goal."
-- "It's Sunday morning, it's the beginning of the week, let's do our best."
-- "You have been following up on all your diet rules in the last week, keep it up!"
-- "I noticed you've been consistent with your morning routine. Great job building that foundation for your day!"
+Example Output:
+Good morning! Here are your insights for today:
+- Great job staying consistent with your "Read book" habit this week!
+- I noticed you've hit the gym once so far. Remember your goal is 4 times this week, so you've got 3 more to go!
+- It looks like you haven't logged your "Arabic Words" review yet today. A few minutes is all it takes!
 `,
 });
 
