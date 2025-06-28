@@ -41,16 +41,19 @@ export function HabitCard({ habit, onReport, onRestart, isUpdating }: HabitCardP
   const getStatusText = () => {
     switch (habit.type) {
       case 'time':
-        if (habit.completed && habit.lastReportedValue) {
-          return `Goal: ${habit.goal} | Actual: ${habit.lastReportedValue}`;
+        if (habit.lastReportedValue) {
+          return `Reported at ${habit.lastReportedValue} (Goal: ${habit.goal})`;
         }
         return `Goal: ${habit.goal}`;
       case 'options':
-        if (habit.completed && habit.lastReportedValue) {
+        if (habit.lastReportedValue) {
           return `Last choice: ${habit.lastReportedValue}`;
         }
         return `Goal: ${habit.goal}`;
       case 'boolean':
+        if (habit.completed) {
+            return `Completed: ${habit.goal}`;
+        }
         return `Goal: ${habit.goal}`;
       case 'number':
       case 'duration': {
@@ -61,7 +64,7 @@ export function HabitCard({ habit, onReport, onRestart, isUpdating }: HabitCardP
         const goalValue = parseInt(goalParts[1], 10);
         const unit = goalParts[2] || '';
         const currentValue = habit.progress || 0;
-        return `Status: ${currentValue} / ${goalValue} ${unit.trim()}`;
+        return `Progress: ${currentValue} / ${goalValue} ${unit.trim()}`;
       }
       default:
         return `Goal: ${habit.goal}`;
