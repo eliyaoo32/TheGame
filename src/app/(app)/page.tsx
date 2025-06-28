@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ReportProgressDialog } from '@/components/dashboard/report-progress-dialog';
 import { AIAgentBar } from '@/components/dashboard/ai-agent-bar';
+import { AIFeedbacker } from '@/components/dashboard/ai-feedbacker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -153,6 +154,7 @@ export default function DashboardPage() {
   return (
     <>
       <div className="flex flex-col gap-6">
+        <AIFeedbacker />
         <AIAgentBar onSuccess={() => fetchHabits(selectedDate)} />
         <div className="flex items-center justify-between">
           <div>
