@@ -24,9 +24,13 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [reportingHabit, setReportingHabit] = useState<Habit | null>(null);
   const [updatingHabitId, setUpdatingHabitId] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+
+  useEffect(() => {
+    setSelectedDate(new Date());
+  }, []);
 
   const fetchHabits = useCallback(async (dateToFetch: Date) => {
     if (!user) return;
@@ -47,11 +51,13 @@ export default function DashboardPage() {
   }, [toast, user]);
 
   useEffect(() => {
-    fetchHabits(selectedDate);
+    if (selectedDate) {
+      fetchHabits(selectedDate);
+    }
   }, [fetchHabits, selectedDate]);
 
   const handleSaveProgress = (habit: Habit, value: any) => {
-    if (!user) return;
+    if (!user || !selectedDate) return;
     setUpdatingHabitId(habit.id);
     startTransition(async () => {
       // Create a temporary new report for optimistic update
@@ -96,7 +102,9 @@ export default function DashboardPage() {
          console.error("Failed to update habit:", error);
          toast({ variant: 'destructive', title: 'Error', description: 'Could not save your progress.' });
          // Revert optimistic update by refetching everything
-         fetchHabits(selectedDate);
+         if (selectedDate) {
+            fetchHabits(selectedDate);
+         }
       } finally {
         setUpdatingHabitId(null);
       }
@@ -104,7 +112,7 @@ export default function DashboardPage() {
   };
 
   const handleRestartHabit = (habit: Habit) => {
-    if (!user) return;
+    if (!user || !selectedDate) return;
     setUpdatingHabitId(habit.id);
     startTransition(async () => {
       const originalHabit = { ...habit };
@@ -155,14 +163,16 @@ export default function DashboardPage() {
     <>
       <div className="flex flex-col gap-6">
         <AIFeedbacker />
-        <AIAgentBar onSuccess={() => fetchHabits(selectedDate)} />
+        <AIAgentBar onSuccess={() => selectedDate && fetchHabits(selectedDate)} />
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-semibold md:text-2xl font-headline">
               Dashboard
             </h1>
             <p className="text-sm text-muted-foreground">
-                {isToday(selectedDate)
+                {!selectedDate
+                    ? "Loading..."
+                    : isToday(selectedDate)
                     ? "Showing progress for today."
                     : `Showing progress for ${format(selectedDate, "PPP")}.`
                 }
