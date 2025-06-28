@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Form, FormControl, FormField, FormItem } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Sparkles } from 'lucide-react';
@@ -26,7 +26,7 @@ interface AIAgentBarProps {
 }
 
 const agentSchema = z.object({
-  query: z.string().min(3, { message: "Please enter a command." }),
+  query: z.string().min(3, { message: "Please enter a command with at least 3 characters." }),
 });
 
 export function AIAgentBar({ onSuccess }: AIAgentBarProps) {
@@ -48,12 +48,13 @@ export function AIAgentBar({ onSuccess }: AIAgentBarProps) {
     setAgentResponse(null);
     startTransition(async () => {
       const result = await invokeHabitAgent({ ...values, userId: user.uid });
-      if (result.success && result.message) {
+      if (result?.success && result.message) {
         setAgentResponse({ message: result.message, type: 'success' });
         form.reset();
         onSuccess();
-      } else if (result.error) {
-        setAgentResponse({ message: result.error, type: 'error' });
+      } else {
+        const errorMessage = result?.error || 'The AI assistant returned an unexpected response. Please try again.';
+        setAgentResponse({ message: errorMessage, type: 'error' });
       }
     });
   };
@@ -84,21 +85,24 @@ export function AIAgentBar({ onSuccess }: AIAgentBarProps) {
           </div>
         )}
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex items-center gap-2">
-            <FormField
-              control={form.control}
-              name="query"
-              render={({ field }) => (
-                <FormItem className="flex-grow">
-                  <FormControl>
-                    <Input placeholder="Type your command here..." {...field} disabled={isPending} />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-            <Button type="submit" disabled={isPending}>
-              {isPending ? "Thinking..." : "Send"}
-            </Button>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-2">
+            <div className="flex items-start gap-2">
+                <FormField
+                control={form.control}
+                name="query"
+                render={({ field }) => (
+                    <FormItem className="flex-grow">
+                    <FormControl>
+                        <Input placeholder="Type your command here..." {...field} disabled={isPending} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                <Button type="submit" disabled={isPending}>
+                {isPending ? "Thinking..." : "Send"}
+                </Button>
+            </div>
           </form>
         </Form>
       </CardContent>
