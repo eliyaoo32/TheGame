@@ -57,7 +57,12 @@ export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isMonthsLoading, setIsMonthsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('table');
+  const [currentDate, setCurrentDate] = useState<Date | undefined>();
   const { toast } = useToast();
+
+  useEffect(() => {
+    setCurrentDate(new Date());
+  }, []);
 
   useEffect(() => {
     async function fetchMonths() {
@@ -101,7 +106,8 @@ export default function ReportsPage() {
           const fetchedHabits = await getHabitsWithReportsForMonth(user.uid, monthDate);
           setHabits(fetchedHabits);
         } else if (activeTab === 'table') {
-          const fetchedHabits = await getHabitsWithReportsForWeek(user.uid, new Date());
+          if (!currentDate) return;
+          const fetchedHabits = await getHabitsWithReportsForWeek(user.uid, currentDate);
           setHabits(fetchedHabits);
         }
       } catch (error) {
@@ -117,7 +123,7 @@ export default function ReportsPage() {
       }
     }
     fetchReports();
-  }, [selectedMonth, activeTab, toast, user]);
+  }, [selectedMonth, activeTab, toast, user, currentDate]);
 
   const { calendarGrid, reportsByDate } = useMemo(() => {
     if (!selectedMonth || activeTab !== 'calendar') return { calendarGrid: [], reportsByDate: new Map() };
@@ -179,11 +185,10 @@ export default function ReportsPage() {
   }, [calendarGrid]);
 
   const { weeklyTableData, daysOfWeek } = useMemo(() => {
-    if (activeTab !== 'table' || isLoading) return { weeklyTableData: [], daysOfWeek: [] };
+    if (activeTab !== 'table' || isLoading || !currentDate) return { weeklyTableData: [], daysOfWeek: [] };
 
-    const today = new Date();
-    const weekStart = startOfWeek(today, { weekStartsOn: 0 });
-    const weekEnd = endOfWeek(today, { weekStartsOn: 0 });
+    const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
+    const weekEnd = endOfWeek(currentDate, { weekStartsOn: 0 });
     const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
 
     // 1. Process reports for each habit
@@ -236,7 +241,7 @@ export default function ReportsPage() {
     });
 
     return { weeklyTableData: finalTableData, daysOfWeek: days };
-  }, [habits, activeTab, isLoading]);
+  }, [habits, activeTab, isLoading, currentDate]);
 
   return (
     <div className="flex flex-col gap-6">
