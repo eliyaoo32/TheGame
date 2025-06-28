@@ -32,57 +32,6 @@ const AddHabitReportInputSchema = z.object({
     date: z.string().optional().describe("The date for the report in 'YYYY-MM-DD' format. If not provided, today's date will be used."),
 });
 
-// Tool Definitions
-
-const addHabitTool = ai.defineTool({
-    name: 'addHabit',
-    description: 'Creates a new habit.',
-    inputSchema: AddHabitInputSchema,
-    outputSchema: z.object({ habitId: z.string() }),
-}, async (input) => {
-    const habitId = await habitService.addHabit(input);
-    return { habitId };
-});
-
-const updateHabitTool = ai.defineTool({
-    name: 'updateHabit',
-    description: 'Updates an existing habit.',
-    inputSchema: UpdateHabitInputSchema,
-    outputSchema: z.object({ success: z.boolean() }),
-}, async ({ habitId, data }) => {
-    await habitService.updateHabit(habitId, data);
-    return { success: true };
-});
-
-const addHabitReportTool = ai.defineTool({
-    name: 'addHabitReport',
-    description: 'Reports progress for a specific habit.',
-    inputSchema: AddHabitReportInputSchema,
-    outputSchema: z.object({ success: z.boolean() }),
-}, async ({ habitId, value, date }) => {
-    // Ensure numeric values are stored as numbers for consistency.
-    const habit = await habitService.getHabitById(habitId);
-    let parsedValue: string | number | boolean = value;
-
-    if (habit) {
-        if (habit.type === 'number' || habit.type === 'duration') {
-            const num = parseFloat(value);
-            if (!isNaN(num)) {
-                parsedValue = num;
-            }
-        } else if (habit.type === 'boolean') {
-            parsedValue = true;
-        }
-    }
-    
-    // Create a new Date object from the string. 'YYYY-MM-DD' is parsed as UTC midnight.
-    // We add a time to prevent timezone-related "off-by-one-day" errors.
-    const reportDate = date ? new Date(`${date}T12:00:00Z`) : new Date();
-
-    await habitService.addHabitReport(habitId, parsedValue, reportDate);
-    return { success: true };
-});
-
 
 // Main Flow
 const HabitAgentOutputSchema = z.object({
@@ -90,80 +39,127 @@ const HabitAgentOutputSchema = z.object({
 });
 export type HabitAgentOutput = z.infer<typeof HabitAgentOutputSchema>;
 
-export async function habitAgent(query: string): Promise<HabitAgentOutput> {
-    return habitAgentFlow({ query });
+export async function habitAgent(query: string, userId: string): Promise<HabitAgentOutput> {
+    return habitAgentFlow({ query, userId });
 }
-
-const prompt = ai.definePrompt({
-    name: 'habitAgentPrompt',
-    input: { schema: z.object({ query: z.string(), habits: z.array(z.any()), categories: z.array(z.any()), currentDate: z.string() }) },
-    output: { schema: HabitAgentOutputSchema },
-    tools: [addHabitTool, updateHabitTool, addHabitReportTool],
-    prompt: `You are a task-oriented AI assistant for a habit tracking app. Your ONLY purpose is to translate the user's natural language request into a function call using the provided tools.
-
-- Analyze the user's request.
-- Based on the request, decide which tool to use.
-- Extract all necessary parameters for the tool from the request and the context below.
-- **Pay close attention to dates. If the user mentions a specific day like "yesterday", "on Tuesday", or a date like "July 5th", you MUST calculate the correct date in 'YYYY-MM-DD' format and pass it to the 'date' parameter. Today's date is {{currentDate}}. If no date is mentioned, do not pass a date.**
-- If you have all the information, call the tool.
-- If the request is ambiguous or you are missing information, ask the user for clarification. Do not try to guess.
-- After a tool is successfully called, you will receive its output. Summarize this result for the user in a friendly, concise message.
-
-**CONTEXT**
-
-Available Habits:
-{{#if habits}}
-{{#each habits}}
-- Name: "{{this.name}}", ID: {{this.id}}, Description: "{{this.description}}"
-{{/each}}
-{{else}}
-The user has no habits.
-{{/if}}
-
-Available Categories:
-{{#if categories}}
-{{#each categories}}
-- Name: "{{this.name}}", ID: {{this.id}}
-{{/each}}
-{{else}}
-The user has no categories.
-{{/if}}
-
-**TOOL USAGE EXAMPLES**
-
-- User says: "I read 15 pages today."
-- You should call: \`addHabitReport\` with the ID for the "Reading" habit and a value of "15".
-
-- User says: "Yesterday I meditated for 10 minutes."
-- You should analyze "yesterday" relative to {{currentDate}} and call: \`addHabitReport\` with the ID for "Meditation", value "10", and the correct date string (e.g., if today is 2024-07-16, the date would be "2024-07-15").
-
-- User says: "I did my workout"
-- You should call: \`addHabitReport\` with the ID for the "Workout" habit and a value of "true".
-
-- User says: "Add a new daily habit to drink 8 glasses of water."
-- You should call: \`addHabit\` with name="Drink water", frequency="daily", goal="8 glasses of water", description="A new habit to drink water", type="number", and a relevant icon.
-
-- User says: "change my reading goal to 20 pages"
-- You should call: \`updateHabit\` with the ID for "Reading" and data={goal: "20 pages"}.
-
-**USER REQUEST**
-"{{query}}"`,
-});
-
 
 const habitAgentFlow = ai.defineFlow(
   {
     name: 'habitAgentFlow',
-    inputSchema: z.object({ query: z.string() }),
+    inputSchema: z.object({ query: z.string(), userId: z.string() }),
     outputSchema: HabitAgentOutputSchema,
   },
-  async ({ query }) => {
+  async ({ query, userId }) => {
+
+    // Tool Definitions (defined inside the flow to access userId)
+
+    const addHabitTool = ai.defineTool({
+        name: 'addHabit',
+        description: 'Creates a new habit.',
+        inputSchema: AddHabitInputSchema,
+        outputSchema: z.object({ habitId: z.string() }),
+    }, async (input) => {
+        const habitId = await habitService.addHabit(userId, input);
+        return { habitId };
+    });
+
+    const updateHabitTool = ai.defineTool({
+        name: 'updateHabit',
+        description: 'Updates an existing habit.',
+        inputSchema: UpdateHabitInputSchema,
+        outputSchema: z.object({ success: z.boolean() }),
+    }, async ({ habitId, data }) => {
+        await habitService.updateHabit(userId, habitId, data);
+        return { success: true };
+    });
+
+    const addHabitReportTool = ai.defineTool({
+        name: 'addHabitReport',
+        description: 'Reports progress for a specific habit.',
+        inputSchema: AddHabitReportInputSchema,
+        outputSchema: z.object({ success: z.boolean() }),
+    }, async ({ habitId, value, date }) => {
+        const habit = await habitService.getHabitById(userId, habitId);
+        let parsedValue: string | number | boolean = value;
+
+        if (habit) {
+            if (habit.type === 'number' || habit.type === 'duration') {
+                const num = parseFloat(value);
+                if (!isNaN(num)) {
+                    parsedValue = num;
+                }
+            } else if (habit.type === 'boolean') {
+                parsedValue = true;
+            }
+        }
+        
+        const reportDate = date ? new Date(`${date}T12:00:00Z`) : new Date();
+
+        await habitService.addHabitReport(userId, habitId, parsedValue, reportDate);
+        return { success: true };
+    });
+
+    const prompt = ai.definePrompt({
+        name: 'habitAgentPrompt',
+        input: { schema: z.object({ query: z.string(), habits: z.array(z.any()), categories: z.array(z.any()), currentDate: z.string() }) },
+        output: { schema: HabitAgentOutputSchema },
+        tools: [addHabitTool, updateHabitTool, addHabitReportTool],
+        prompt: `You are a task-oriented AI assistant for a habit tracking app. Your ONLY purpose is to translate the user's natural language request into a function call using the provided tools.
+
+    - Analyze the user's request.
+    - Based on the request, decide which tool to use.
+    - Extract all necessary parameters for the tool from the request and the context below.
+    - **Pay close attention to dates. If the user mentions a specific day like "yesterday", "on Tuesday", or a date like "July 5th", you MUST calculate the correct date in 'YYYY-MM-DD' format and pass it to the 'date' parameter. Today's date is {{currentDate}}. If no date is mentioned, do not pass a date.**
+    - If you have all the information, call the tool.
+    - If the request is ambiguous or you are missing information, ask the user for clarification. Do not try to guess.
+    - After a tool is successfully called, you will receive its output. Summarize this result for the user in a friendly, concise message.
+
+    **CONTEXT**
+
+    Available Habits:
+    {{#if habits}}
+    {{#each habits}}
+    - Name: "{{this.name}}", ID: {{this.id}}, Description: "{{this.description}}"
+    {{/each}}
+    {{else}}
+    The user has no habits.
+    {{/if}}
+
+    Available Categories:
+    {{#if categories}}
+    {{#each categories}}
+    - Name: "{{this.name}}", ID: {{this.id}}
+    {{/each}}
+    {{else}}
+    The user has no categories.
+    {{/if}}
+
+    **TOOL USAGE EXAMPLES**
+
+    - User says: "I read 15 pages today."
+    - You should call: \`addHabitReport\` with the ID for the "Reading" habit and a value of "15".
+
+    - User says: "Yesterday I meditated for 10 minutes."
+    - You should analyze "yesterday" relative to {{currentDate}} and call: \`addHabitReport\` with the ID for "Meditation", value "10", and the correct date string (e.g., if today is 2024-07-16, the date would be "2024-07-15").
+
+    - User says: "I did my workout"
+    - You should call: \`addHabitReport\` with the ID for the "Workout" habit and a value of "true".
+
+    - User says: "Add a new daily habit to drink 8 glasses of water."
+    - You should call: \`addHabit\` with name="Drink water", frequency="daily", goal="8 glasses of water", description="A new habit to drink water", type="number", and a relevant icon.
+
+    - User says: "change my reading goal to 20 pages"
+    - You should call: \`updateHabit\` with the ID for "Reading" and data={goal: "20 pages"}.
+
+    **USER REQUEST**
+    "{{query}}"`,
+    });
+
     const [rawHabits, categories] = await Promise.all([
-        habitService.getHabitDefinitions(),
-        habitService.getCategories(),
+        habitService.getHabitDefinitions(userId),
+        habitService.getCategories(userId),
     ]);
 
-    // Pass a simplified version to the prompt to be more concise and clear for the AI.
     const habits = rawHabits.map(h => ({
         id: h.id,
         name: h.name,

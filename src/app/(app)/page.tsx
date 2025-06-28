@@ -7,6 +7,7 @@ import { Calendar as CalendarIcon } from 'lucide-react';
 import type { Habit, HabitReport } from '@/lib/types';
 import { getHabits, addHabitReport, deleteHabitReportsForPeriod } from '@/services/habits';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/context/auth-provider';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ReportProgressDialog } from '@/components/dashboard/report-progress-dialog';
@@ -17,6 +18,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { HabitCard } from '@/components/dashboard/habit-card';
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
   const [reportingHabit, setReportingHabit] = useState<Habit | null>(null);
@@ -26,27 +28,29 @@ export default function DashboardPage() {
   const { toast } = useToast();
 
   const fetchHabits = useCallback(async (dateToFetch: Date) => {
+    if (!user) return;
     setLoading(true);
     try {
-      const fetchedHabits = await getHabits(dateToFetch);
+      const fetchedHabits = await getHabits(user.uid, dateToFetch);
       setHabits(fetchedHabits);
     } catch (error) {
       console.error("Failed to fetch habits:", error);
       toast({
         variant: 'destructive',
         title: 'Error fetching habits',
-        description: 'Could not fetch your habits. Please ensure your Firebase configuration in .env is correct and check your Firestore security rules. After fixing, you may need to refresh the page.',
+        description: 'Could not fetch your habits. Please ensure you are logged in and check your Firestore security rules. After fixing, you may need to refresh the page.',
       });
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, user]);
 
   useEffect(() => {
     fetchHabits(selectedDate);
   }, [fetchHabits, selectedDate]);
 
   const handleSaveProgress = (habit: Habit, value: any) => {
+    if (!user) return;
     setUpdatingHabitId(habit.id);
     startTransition(async () => {
       // Create a temporary new report for optimistic update
@@ -84,7 +88,7 @@ export default function DashboardPage() {
       setReportingHabit(null);
       
       try {
-        await addHabitReport(habit.id, value, selectedDate);
+        await addHabitReport(user.uid, habit.id, value, selectedDate);
         await fetchHabits(selectedDate); // Refetch to get the latest state from the server
         toast({ title: "Progress saved!", description: `Your progress for "${habit.name}" has been updated.`});
       } catch (error) {
@@ -99,6 +103,7 @@ export default function DashboardPage() {
   };
 
   const handleRestartHabit = (habit: Habit) => {
+    if (!user) return;
     setUpdatingHabitId(habit.id);
     startTransition(async () => {
       const originalHabit = { ...habit };
@@ -107,7 +112,7 @@ export default function DashboardPage() {
       setHabits((prev) => prev.map((h) => (h.id === habit.id ? updatedHabit : h)));
 
       try {
-        await deleteHabitReportsForPeriod(habit.id, habit.frequency, selectedDate);
+        await deleteHabitReportsForPeriod(user.uid, habit.id, habit.frequency, selectedDate);
         toast({ title: "Habit restarted!", description: `Progress for "${habit.name}" has been reset for this period.` });
         await fetchHabits(selectedDate); // Refetch to confirm
       } catch (error) {

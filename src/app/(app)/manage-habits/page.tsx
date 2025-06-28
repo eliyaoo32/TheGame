@@ -39,11 +39,13 @@ import { AddHabitDialog } from '@/components/dashboard/add-habit-dialog';
 import { AddCategoryDialog } from '@/components/dashboard/add-category-dialog';
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/context/auth-provider';
 import { getHabitDefinitions, addHabit, updateHabit, deleteHabit, getCategories, addCategory, updateCategory, deleteCategory } from '@/services/habits';
 import { Skeleton } from '@/components/ui/skeleton';
 import { HabitIcon } from '@/components/habit-icon';
 
 export default function ManageHabitsPage() {
+  const { user } = useAuth();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,9 +65,10 @@ export default function ManageHabitsPage() {
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
+    if (!user) return;
     setLoading(true);
     try {
-      const [fetchedHabits, fetchedCategories] = await Promise.all([getHabitDefinitions(), getCategories()]);
+      const [fetchedHabits, fetchedCategories] = await Promise.all([getHabitDefinitions(user.uid), getCategories(user.uid)]);
       setHabits(fetchedHabits);
       setCategories(fetchedCategories);
     } catch (error) {
@@ -78,11 +81,13 @@ export default function ManageHabitsPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, user]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (user) {
+      fetchData();
+    }
+  }, [fetchData, user]);
 
   const categoryMap = useMemo(() => {
     return new Map(categories.map(c => [c.id, c.name]));
@@ -91,12 +96,13 @@ export default function ManageHabitsPage() {
   // ========== HABIT HANDLERS ==========
 
   const handleSaveHabit = async (savedHabitData: Omit<Habit, 'id' | 'progress' | 'completed' | 'reports' | 'lastReportedValue' | 'categoryName'> & { id?: string }) => {
+    if (!user) return;
     try {
       if (savedHabitData.id) {
-        await updateHabit(savedHabitData.id, savedHabitData);
+        await updateHabit(user.uid, savedHabitData.id, savedHabitData);
         toast({ title: 'Habit updated!', description: `"${savedHabitData.name}" has been saved.` });
       } else {
-        await addHabit(savedHabitData);
+        await addHabit(user.uid, savedHabitData);
         toast({ title: 'Habit added!', description: `"${savedHabitData.name}" has been saved.` });
       }
       fetchData(); // Refetch all data to keep UI in sync
@@ -107,9 +113,9 @@ export default function ManageHabitsPage() {
   };
 
   const handleDeleteHabit = async () => {
-    if (habitToDelete) {
+    if (habitToDelete && user) {
       try {
-        await deleteHabit(habitToDelete.id);
+        await deleteHabit(user.uid, habitToDelete.id);
         toast({ title: 'Habit deleted', description: `"${habitToDelete.name}" has been removed.` });
         fetchData();
       } catch (error) {
@@ -130,12 +136,13 @@ export default function ManageHabitsPage() {
   // ========== CATEGORY HANDLERS ==========
   
   const handleSaveCategory = async (savedCategoryData: { id?: string, name: string }) => {
+    if (!user) return;
     try {
       if (savedCategoryData.id) {
-        await updateCategory(savedCategoryData.id, savedCategoryData.name);
+        await updateCategory(user.uid, savedCategoryData.id, savedCategoryData.name);
         toast({ title: 'Category updated!', description: `"${savedCategoryData.name}" has been saved.` });
       } else {
-        await addCategory(savedCategoryData.name);
+        await addCategory(user.uid, savedCategoryData.name);
         toast({ title: 'Category added!', description: `"${savedCategoryData.name}" has been saved.` });
       }
       fetchData(); // Refetch all data
@@ -146,9 +153,9 @@ export default function ManageHabitsPage() {
   };
 
   const handleDeleteCategory = async () => {
-    if (categoryToDelete) {
+    if (categoryToDelete && user) {
       try {
-        await deleteCategory(categoryToDelete.id);
+        await deleteCategory(user.uid, categoryToDelete.id);
         toast({ title: 'Category deleted', description: `"${categoryToDelete.name}" has been removed.` });
         fetchData(); // Refetch
       } catch (error) {

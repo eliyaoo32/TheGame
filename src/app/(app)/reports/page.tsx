@@ -22,6 +22,7 @@ import {
 } from '@/services/habits';
 import type { Habit, HabitReport } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/context/auth-provider';
 import { cn } from '@/lib/utils';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -49,6 +50,7 @@ type WeeklyTableItem =
   | { isHeader: false; habit: Habit; reports: Map<string, string> };
 
 export default function ReportsPage() {
+  const { user } = useAuth();
   const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -59,13 +61,13 @@ export default function ReportsPage() {
 
   useEffect(() => {
     async function fetchMonths() {
+      if (!user) return;
       setIsMonthsLoading(true);
       try {
-        const months = await getUniqueReportMonths();
+        const months = await getUniqueReportMonths(user.uid);
         const monthStrings = months.map(m => format(m, 'yyyy-MM'));
         setAvailableMonths(monthStrings);
         if (monthStrings.length > 0) {
-          // Set default month but don't trigger immediate data fetching for calendar
           if (!selectedMonth) {
             setSelectedMonth(monthStrings[0]);
           }
@@ -82,10 +84,11 @@ export default function ReportsPage() {
       }
     }
     fetchMonths();
-  }, [toast, selectedMonth]);
+  }, [toast, selectedMonth, user]);
 
   useEffect(() => {
     async function fetchReports() {
+      if (!user) return;
       setIsLoading(true);
       try {
         if (activeTab === 'calendar') {
@@ -95,10 +98,10 @@ export default function ReportsPage() {
             return;
           }
           const monthDate = parse(selectedMonth, 'yyyy-MM', new Date());
-          const fetchedHabits = await getHabitsWithReportsForMonth(monthDate);
+          const fetchedHabits = await getHabitsWithReportsForMonth(user.uid, monthDate);
           setHabits(fetchedHabits);
         } else if (activeTab === 'table') {
-          const fetchedHabits = await getHabitsWithReportsForWeek(new Date());
+          const fetchedHabits = await getHabitsWithReportsForWeek(user.uid, new Date());
           setHabits(fetchedHabits);
         }
       } catch (error) {
@@ -114,7 +117,7 @@ export default function ReportsPage() {
       }
     }
     fetchReports();
-  }, [selectedMonth, activeTab, toast]);
+  }, [selectedMonth, activeTab, toast, user]);
 
   const { calendarGrid, reportsByDate } = useMemo(() => {
     if (!selectedMonth || activeTab !== 'calendar') return { calendarGrid: [], reportsByDate: new Map() };

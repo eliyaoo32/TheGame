@@ -5,12 +5,13 @@ import { z } from 'zod';
 
 const agentQuerySchema = z.object({
   query: z.string().min(1),
+  userId: z.string().min(1),
 });
 
 export async function invokeHabitAgent(input: z.infer<typeof agentQuerySchema>): Promise<{success: boolean, message?: string, error?: string}> {
     try {
         const validatedInput = agentQuerySchema.parse(input);
-        const result = await habitAgent(validatedInput.query);
+        const result = await habitAgent(validatedInput.query, validatedInput.userId);
         return { success: true, message: result.message };
     } catch(error) {
         console.error(error);

@@ -18,16 +18,12 @@ import { db } from '@/lib/firebase';
 import type { Habit, HabitFrequency, HabitReport, Category } from '@/lib/types';
 import { startOfDay, startOfWeek, startOfMonth, endOfMonth, format, parse, endOfWeek, endOfDay } from 'date-fns';
 
-// Hardcoded user ID for now, until we have authentication
-const userId = 'test-user';
-
-const habitsCollectionRef = collection(db, 'users', userId, 'habits');
-const categoriesCollectionRef = collection(db, 'users', userId, 'categories');
-
 // ========== CATEGORY FUNCTIONS ==========
 
-export const getCategories = async (): Promise<Category[]> => {
+export const getCategories = async (userId: string): Promise<Category[]> => {
+    if (!userId) return [];
     try {
+        const categoriesCollectionRef = collection(db, 'users', userId, 'categories');
         const snapshot = await getDocs(query(categoriesCollectionRef));
         return snapshot.docs.map(doc => ({
             id: doc.id,
@@ -39,20 +35,19 @@ export const getCategories = async (): Promise<Category[]> => {
     }
 }
 
-export const addCategory = async (name: string): Promise<string> => {
+export const addCategory = async (userId: string, name: string): Promise<string> => {
+    const categoriesCollectionRef = collection(db, 'users', userId, 'categories');
     const docRef = await addDoc(categoriesCollectionRef, { name });
     return docRef.id;
 }
 
-export const updateCategory = async (id: string, name:string) => {
+export const updateCategory = async (userId: string, id: string, name:string) => {
     const categoryDoc = doc(db, 'users', userId, 'categories', id);
     await updateDoc(categoryDoc, { name });
 }
 
-export const deleteCategory = async (id: string) => {
+export const deleteCategory = async (userId: string, id: string) => {
     const categoryDoc = doc(db, 'users', userId, 'categories', id);
-    // TODO: When a category is deleted, you might want to set the categoryId of habits in that category to null.
-    // This can be done with a batch write here or handled in the UI. For now, we just delete the category.
     await deleteDoc(categoryDoc);
 }
 
@@ -72,8 +67,12 @@ const mapDocToHabit = (doc: QueryDocumentSnapshot<DocumentData, DocumentData>): 
 
 // This function will fetch habits without their report/progress details.
 // Ideal for management pages where we just need the list.
-export const getHabitDefinitions = async (): Promise<Habit[]> => {
+export const getHabitDefinitions = async (userId: string): Promise<Habit[]> => {
+  if (!userId) return [];
   try {
+    const habitsCollectionRef = collection(db, 'users', userId, 'habits');
+    const categoriesCollectionRef = collection(db, 'users', userId, 'categories');
+    
     const [habitsSnapshot, categoriesSnapshot] = await Promise.all([
       getDocs(query(habitsCollectionRef)),
       getDocs(query(categoriesCollectionRef)),
@@ -100,15 +99,18 @@ export const getHabitDefinitions = async (): Promise<Habit[]> => {
   } catch (error) {
     console.error("Error fetching habit definitions: ", error);
     if (error instanceof Error && error.message.includes('permission-denied')) {
-      console.error("Firestore permission denied. Check your Firestore security rules and ensure the API keys in .env are correct.");
+      console.error("Firestore permission denied. Check your Firestore security rules and ensure you are authenticated.");
     }
     return [];
   }
 };
 
 
-export const getHabits = async (date: Date): Promise<Habit[]> => {
+export const getHabits = async (userId: string, date: Date): Promise<Habit[]> => {
+  if (!userId) return [];
   try {
+    const habitsCollectionRef = collection(db, 'users', userId, 'habits');
+    const categoriesCollectionRef = collection(db, 'users', userId, 'categories');
     const [habitsSnapshot, categoriesSnapshot] = await Promise.all([
         getDocs(query(habitsCollectionRef)),
         getDocs(query(categoriesCollectionRef))
@@ -185,13 +187,14 @@ export const getHabits = async (date: Date): Promise<Habit[]> => {
   } catch (error) {
     console.error("Error fetching habits: ", error);
     if (error instanceof Error && error.message.includes('permission-denied')) {
-        console.error("Firestore permission denied. Check your Firestore security rules and ensure the API keys in .env are correct.");
+        console.error("Firestore permission denied. Check your Firestore security rules and ensure you are authenticated.");
     }
     return [];
   }
 };
 
-export const getHabitById = async (habitId: string): Promise<Omit<Habit, 'reports' | 'progress' | 'completed' | 'lastReportedValue' | 'categoryName'> | null> => {
+export const getHabitById = async (userId: string, habitId: string): Promise<Omit<Habit, 'reports' | 'progress' | 'completed' | 'lastReportedValue' | 'categoryName'> | null> => {
+    if (!userId) return null;
     try {
         const habitDocRef = doc(db, 'users', userId, 'habits', habitId);
         const habitDoc = await getDoc(habitDocRef);
@@ -212,7 +215,8 @@ export const getHabitById = async (habitId: string): Promise<Omit<Habit, 'report
     }
 }
 
-export const addHabit = async (habitData: Omit<Habit, 'id' | 'progress' | 'completed' | 'reports' | 'lastReportedValue' | 'options' | 'categoryName'> & { options?: string }) => {
+export const addHabit = async (userId: string, habitData: Omit<Habit, 'id' | 'progress' | 'completed' | 'reports' | 'lastReportedValue' | 'options' | 'categoryName'> & { options?: string }) => {
+  const habitsCollectionRef = collection(db, 'users', userId, 'habits');
   const newHabit = {
     ...habitData,
     createdAt: Timestamp.now(),
@@ -221,7 +225,7 @@ export const addHabit = async (habitData: Omit<Habit, 'id' | 'progress' | 'compl
   return docRef.id;
 };
 
-export const addHabitReport = async (habitId: string, value: any, date: Date = new Date()) => {
+export const addHabitReport = async (userId: string, habitId: string, value: any, date: Date = new Date()) => {
     const report = {
         value,
         reportedAt: Timestamp.fromDate(date),
@@ -231,10 +235,9 @@ export const addHabitReport = async (habitId: string, value: any, date: Date = n
 };
 
 
-export const updateHabit = async (habitId: string, habitData: Partial<Omit<Habit, 'id' | 'progress' | 'completed' | 'reports' | 'lastReportedValue' | 'categoryName'>>) => {
+export const updateHabit = async (userId: string, habitId: string, habitData: Partial<Omit<Habit, 'id' | 'progress' | 'completed' | 'reports' | 'lastReportedValue' | 'categoryName'>>) => {
   const habitDoc = doc(db, 'users', userId, 'habits', habitId);
   
-  // Construct an update object, removing any undefined values
   const updateData: { [key: string]: any } = {};
   for (const key in habitData) {
     if ((habitData as any)[key] !== undefined) {
@@ -245,13 +248,12 @@ export const updateHabit = async (habitId: string, habitData: Partial<Omit<Habit
   await updateDoc(habitDoc, updateData);
 };
 
-export const deleteHabit = async (habitId: string) => {
+export const deleteHabit = async (userId: string, habitId: string) => {
   const habitDoc = doc(db, 'users', userId, 'habits', habitId);
-  // Note: This does not delete the subcollection of reports. A cloud function is needed for that.
   await deleteDoc(habitDoc);
 };
 
-export const deleteHabitReportsForPeriod = async (habitId: string, frequency: HabitFrequency, date: Date = new Date()) => {
+export const deleteHabitReportsForPeriod = async (userId: string, habitId: string, frequency: HabitFrequency, date: Date = new Date()) => {
   let startDate: Date;
   let endDate: Date;
 
@@ -283,8 +285,11 @@ export const deleteHabitReportsForPeriod = async (habitId: string, frequency: Ha
   await batch.commit();
 };
 
-export const getHabitsWithReportsForMonth = async (date: Date): Promise<Habit[]> => {
+export const getHabitsWithReportsForMonth = async (userId: string, date: Date): Promise<Habit[]> => {
+    if (!userId) return [];
     try {
+        const habitsCollectionRef = collection(db, 'users', userId, 'habits');
+        const categoriesCollectionRef = collection(db, 'users', userId, 'categories');
         const [habitsSnapshot, categoriesSnapshot] = await Promise.all([
             getDocs(query(habitsCollectionRef)),
             getDocs(query(categoriesCollectionRef))
@@ -339,8 +344,11 @@ export const getHabitsWithReportsForMonth = async (date: Date): Promise<Habit[]>
     }
 };
 
-export const getHabitsWithReportsForWeek = async (date: Date): Promise<Habit[]> => {
+export const getHabitsWithReportsForWeek = async (userId: string, date: Date): Promise<Habit[]> => {
+    if (!userId) return [];
     try {
+        const habitsCollectionRef = collection(db, 'users', userId, 'habits');
+        const categoriesCollectionRef = collection(db, 'users', userId, 'categories');
         const [habitsSnapshot, categoriesSnapshot] = await Promise.all([
             getDocs(query(habitsCollectionRef)),
             getDocs(query(categoriesCollectionRef))
@@ -394,7 +402,9 @@ export const getHabitsWithReportsForWeek = async (date: Date): Promise<Habit[]> 
     }
 };
 
-export const getUniqueReportMonths = async (): Promise<Date[]> => {
+export const getUniqueReportMonths = async (userId: string): Promise<Date[]> => {
+    if (!userId) return [];
+    const habitsCollectionRef = collection(db, 'users', userId, 'habits');
     const habitsSnapshot = await getDocs(query(habitsCollectionRef));
     const allReportsTimestamps: Timestamp[] = [];
 

@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Sparkles } from 'lucide-react';
 import { invokeHabitAgent } from '@/lib/actions';
+import { useAuth } from '@/context/auth-provider';
+import { useToast } from '@/hooks/use-toast';
 import {
   Card,
   CardContent,
@@ -28,6 +30,8 @@ const agentSchema = z.object({
 });
 
 export function AIAgentBar({ onSuccess }: AIAgentBarProps) {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
   const [agentResponse, setAgentResponse] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -37,9 +41,13 @@ export function AIAgentBar({ onSuccess }: AIAgentBarProps) {
   });
 
   const onSubmit = (values: z.infer<typeof agentSchema>) => {
+    if (!user) {
+        toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to use the AI assistant.' });
+        return;
+    }
     setAgentResponse(null);
     startTransition(async () => {
-      const result = await invokeHabitAgent(values);
+      const result = await invokeHabitAgent({ ...values, userId: user.uid });
       if (result.success && result.message) {
         setAgentResponse({ message: result.message, type: 'success' });
         form.reset();
