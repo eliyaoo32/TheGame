@@ -25,7 +25,7 @@ const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
 );
 
 export default function LoginPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, signInWithTestUser } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [isSigningIn, setIsSigningIn] = useState(false);
@@ -63,6 +63,11 @@ export default function LoginPage() {
     }
   };
 
+  const handleTestUserSignIn = () => {
+    setIsSigningIn(true);
+    signInWithTestUser();
+  };
+
   if (loading || user) {
       return (
         <div className="flex h-screen w-full items-center justify-center">
@@ -76,10 +81,10 @@ export default function LoginPage() {
       <CardHeader className="space-y-1 text-center">
         <CardTitle className="text-2xl font-headline">Welcome to HabitVerse</CardTitle>
         <CardDescription>
-          Sign in with your Google account to continue
+          Sign in to continue
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="grid gap-4">
         <Button 
             variant="outline" 
             className="w-full" 
@@ -89,6 +94,28 @@ export default function LoginPage() {
           <GoogleIcon className="mr-2 h-4 w-4" />
           {isSigningIn ? 'Signing In...' : 'Sign in with Google'}
         </Button>
+        {process.env.NODE_ENV === 'development' && (
+          <>
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or for development
+                </span>
+              </div>
+            </div>
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={handleTestUserSignIn}
+              disabled={isSigningIn}
+            >
+              Sign In as Test User
+            </Button>
+          </>
+        )}
       </CardContent>
       <CardFooter />
     </Card>
