@@ -215,10 +215,14 @@ export const getHabitById = async (userId: string, habitId: string): Promise<Omi
     }
 }
 
-export const addHabit = async (userId: string, habitData: Omit<Habit, 'id' | 'progress' | 'completed' | 'reports' | 'lastReportedValue' | 'options' | 'categoryName'> & { options?: string }) => {
+export const addHabit = async (userId: string, habitData: Partial<Omit<Habit, 'id' | 'progress' | 'completed' | 'reports' | 'lastReportedValue' | 'categoryName'>>) => {
   const habitsCollectionRef = collection(db, 'users', userId, 'habits');
+  // The incoming habitData can have `id: undefined` when a new habit is created
+  // from a form that also handles editing. Firestore rejects `undefined` values.
+  // We destructure here to ensure `id` is not passed to Firestore.
+  const { id, ...dataToSave } = habitData;
   const newHabit = {
-    ...habitData,
+    ...dataToSave,
     createdAt: Timestamp.now(),
   };
   const docRef = await addDoc(habitsCollectionRef, newHabit);
