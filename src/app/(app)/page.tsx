@@ -14,6 +14,7 @@ import { AIAgentBar } from '@/components/dashboard/ai-agent-bar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
+import { HabitCard } from '@/components/dashboard/habit-card';
 
 export default function DashboardPage() {
   const [habits, setHabits] = useState<Habit[]>([]);
