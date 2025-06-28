@@ -15,14 +15,12 @@ export default function DietPlannerPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // The AppLayout guarantees a user object is present, so we only need to fetch data when we have a user.
     if (user?.uid) {
       getDietPlan(user.uid).then(plan => {
         setDietPlan(plan);
         setLoading(false);
       });
-    } else if (user === null) {
-      // Handle logged out state
-      setLoading(false);
     }
   }, [user]);
 
@@ -49,13 +47,16 @@ export default function DietPlannerPage() {
     );
   }
   
-  if (!user) {
-    return <p>Please log in to use the Diet Planner.</p>;
-  }
-
   if (!dietPlan) {
-    // This case should ideally not be reached if loading completes
-    return <p>Could not load diet plan.</p>;
+    // This case can happen if the diet plan fails to load.
+    // Displaying a loader is safer than showing different text to avoid hydration errors.
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-10 w-1/4" />
+        <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
   }
 
   return (
