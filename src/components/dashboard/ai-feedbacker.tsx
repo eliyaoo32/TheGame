@@ -40,7 +40,7 @@ export function AIFeedbacker() {
 
     setLoading(true);
     const currentTimeSlot = getTimeSlot();
-    const storageKey = `habitverse-feedback-${user.uid}`;
+    const storageKey = `thegame-feedback-${user.uid}`;
     
     try {
       if (!forceRefresh) {

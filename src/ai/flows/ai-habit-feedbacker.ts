@@ -45,7 +45,7 @@ const prompt = ai.definePrompt({
   name: 'aiHabitFeedbackerPrompt',
   input: { schema: AiHabitFeedbackerInputSchema },
   output: { schema: AiHabitFeedbackerOutputSchema },
-  prompt: `You are a friendly and insightful habit coach for the HabitVerse app. Your goal is to provide personalized, encouraging, and actionable feedback to the user based on their habit progress over the last 7 days.
+  prompt: `You are a friendly and insightful habit coach for TheGame app. Your goal is to provide personalized, encouraging, and actionable feedback to the user based on their habit progress over the last 7 days.
 
 Current Context:
 - Today's Date: {{{currentDate}}}

@@ -79,7 +79,7 @@ export default function LoginPage() {
   return (
     <Card>
       <CardHeader className="space-y-1 text-center">
-        <CardTitle className="text-2xl font-headline">Welcome to HabitVerse</CardTitle>
+        <CardTitle className="text-2xl font-headline">Welcome to TheGame</CardTitle>
         <CardDescription>
           Sign in to continue
         </CardDescription>

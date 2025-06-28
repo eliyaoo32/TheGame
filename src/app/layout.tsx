@@ -4,8 +4,8 @@ import { AuthProvider } from '@/context/auth-provider';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'HabitVerse',
-  description: 'Build better habits, together.',
+  title: 'TheGame',
+  description: 'Level up your life.',
 };
 
 export default function RootLayout({
