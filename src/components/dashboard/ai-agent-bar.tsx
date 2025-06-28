@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Sparkles } from 'lucide-react';
 import { invokeHabitAgent } from '@/lib/actions';
@@ -93,7 +93,7 @@ export function AIAgentBar({ onSuccess }: AIAgentBarProps) {
                 render={({ field }) => (
                     <FormItem className="flex-grow">
                     <FormControl>
-                        <Input placeholder="Type your command here..." {...field} disabled={isPending} />
+                        <Textarea placeholder="Type your command here..." {...field} disabled={isPending} className="resize-none" />
                     </FormControl>
                     <FormMessage />
                     </FormItem>
