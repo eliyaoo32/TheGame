@@ -1,3 +1,4 @@
+
 export type HabitType = 'duration' | 'time' | 'boolean' | 'number' | 'options';
 export type HabitFrequency = 'daily' | 'weekly';
 
@@ -28,3 +29,48 @@ export type Habit = {
   categoryId?: string;
   categoryName?: string;
 };
+
+// Diet Planner Types
+export type Gender = 'male' | 'female';
+export type DietObjective = 'lose_weight' | 'maintain_weight' | 'gain_weight';
+export type WeightUnit = 'kg' | 'lbs';
+export type HeightUnit = 'cm' | 'in';
+
+export interface UserProfile {
+  age: number;
+  weight: number;
+  weightUnit: WeightUnit;
+  height: number;
+  heightUnit: HeightUnit;
+  gender: Gender;
+}
+
+export interface DietTargets {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+export interface FoodItem {
+  id: string;
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+export interface Meal {
+  id: string;
+  name: string;
+  foods: FoodItem[];
+}
+
+export interface DietPlan {
+  profile: UserProfile;
+  objective: DietObjective;
+  targets: DietTargets;
+  meals: Meal[];
+  isWizardComplete: boolean;
+}
