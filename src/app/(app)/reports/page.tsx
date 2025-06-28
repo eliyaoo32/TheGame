@@ -69,13 +69,24 @@ export default function ReportsPage() {
       if (!user) return;
       setIsMonthsLoading(true);
       try {
-        const months = await getUniqueReportMonths(user.uid);
-        const monthStrings = months.map(m => format(m, 'yyyy-MM'));
-        setAvailableMonths(monthStrings);
-        if (monthStrings.length > 0) {
-          if (!selectedMonth) {
-            setSelectedMonth(monthStrings[0]);
-          }
+        const reportedMonths = await getUniqueReportMonths(user.uid);
+        const reportedMonthStrings = reportedMonths.map((m) => format(m, 'yyyy-MM'));
+
+        const currentMonthString = format(new Date(), 'yyyy-MM');
+
+        // Use a set to ensure uniqueness and then sort chronologically
+        const allMonthStrings = Array.from(new Set([currentMonthString, ...reportedMonthStrings]));
+        
+        const sortedMonths = allMonthStrings
+            .map(ym => parse(ym, 'yyyy-MM', new Date()))
+            .sort((a, b) => b.getTime() - a.getTime())
+            .map(d => format(d, 'yyyy-MM'));
+
+        setAvailableMonths(sortedMonths);
+        
+        // Set selectedMonth to current month by default if it's not already set by the user
+        if (!selectedMonth) {
+            setSelectedMonth(currentMonthString);
         }
       } catch (error) {
         console.error('Failed to fetch report months:', error);
@@ -88,8 +99,10 @@ export default function ReportsPage() {
         setIsMonthsLoading(false);
       }
     }
-    fetchMonths();
-  }, [toast, selectedMonth, user]);
+    if (user) {
+      fetchMonths();
+    }
+  }, [user, toast]);
 
   useEffect(() => {
     async function fetchReports() {
