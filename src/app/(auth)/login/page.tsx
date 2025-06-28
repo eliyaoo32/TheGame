@@ -41,7 +41,13 @@ export default function LoginPage() {
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-    } catch (error) {
+    } catch (error: any) {
+      // Don't show an error toast if the user simply closes the popup.
+      if (error.code === 'auth/popup-closed-by-user') {
+        setIsSigningIn(false);
+        return;
+      }
+      
       console.error('Error signing in with Google:', error);
       toast({
         variant: 'destructive',
