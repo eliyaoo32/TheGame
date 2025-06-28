@@ -29,6 +29,7 @@ const UpdateHabitInputSchema = z.object({
 const AddHabitReportInputSchema = z.object({
     habitId: z.string().describe('The ID of the habit to report progress for.'),
     value: z.string().describe('The value to report. For "boolean" type, use "true". For "number" or "duration" types, provide the numeric value as a string. For "time", provide the time as a string in HH:MM format. For "options", provide one of the available options as a string.'),
+    date: z.string().optional().describe("The date for the report in 'YYYY-MM-DD' format. If not provided, today's date will be used."),
 });
 
 // Tool Definitions
@@ -58,7 +59,7 @@ const addHabitReportTool = ai.defineTool({
     description: 'Reports progress for a specific habit.',
     inputSchema: AddHabitReportInputSchema,
     outputSchema: z.object({ success: z.boolean() }),
-}, async ({ habitId, value }) => {
+}, async ({ habitId, value, date }) => {
     // Ensure numeric values are stored as numbers for consistency.
     const habit = await habitService.getHabitById(habitId);
     let parsedValue: string | number | boolean = value;
@@ -74,7 +75,11 @@ const addHabitReportTool = ai.defineTool({
         }
     }
     
-    await habitService.addHabitReport(habitId, parsedValue);
+    // Create a new Date object from the string. 'YYYY-MM-DD' is parsed as UTC midnight.
+    // We add a time to prevent timezone-related "off-by-one-day" errors.
+    const reportDate = date ? new Date(`${date}T12:00:00Z`) : new Date();
+
+    await habitService.addHabitReport(habitId, parsedValue, reportDate);
     return { success: true };
 });
 
@@ -91,7 +96,7 @@ export async function habitAgent(query: string): Promise<HabitAgentOutput> {
 
 const prompt = ai.definePrompt({
     name: 'habitAgentPrompt',
-    input: { schema: z.object({ query: z.string(), habits: z.array(z.any()), categories: z.array(z.any()) }) },
+    input: { schema: z.object({ query: z.string(), habits: z.array(z.any()), categories: z.array(z.any()), currentDate: z.string() }) },
     output: { schema: HabitAgentOutputSchema },
     tools: [addHabitTool, updateHabitTool, addHabitReportTool],
     prompt: `You are a task-oriented AI assistant for a habit tracking app. Your ONLY purpose is to translate the user's natural language request into a function call using the provided tools.
@@ -99,6 +104,7 @@ const prompt = ai.definePrompt({
 - Analyze the user's request.
 - Based on the request, decide which tool to use.
 - Extract all necessary parameters for the tool from the request and the context below.
+- **Pay close attention to dates. If the user mentions a specific day like "yesterday", "on Tuesday", or a date like "July 5th", you MUST calculate the correct date in 'YYYY-MM-DD' format and pass it to the 'date' parameter. Today's date is {{currentDate}}. If no date is mentioned, do not pass a date.**
 - If you have all the information, call the tool.
 - If the request is ambiguous or you are missing information, ask the user for clarification. Do not try to guess.
 - After a tool is successfully called, you will receive its output. Summarize this result for the user in a friendly, concise message.
@@ -128,8 +134,8 @@ The user has no categories.
 - User says: "I read 15 pages today."
 - You should call: \`addHabitReport\` with the ID for the "Reading" habit and a value of "15".
 
-- User says: "I meditated for 10 minutes."
-- You should call: \`addHabitReport\` with the ID for the "Meditation" habit and a value of "10".
+- User says: "Yesterday I meditated for 10 minutes."
+- You should analyze "yesterday" relative to {{currentDate}} and call: \`addHabitReport\` with the ID for "Meditation", value "10", and the correct date string (e.g., if today is 2024-07-16, the date would be "2024-07-15").
 
 - User says: "I did my workout"
 - You should call: \`addHabitReport\` with the ID for the "Workout" habit and a value of "true".
@@ -153,7 +159,7 @@ const habitAgentFlow = ai.defineFlow(
   },
   async ({ query }) => {
     const [rawHabits, categories] = await Promise.all([
-        habitService.getHabits(),
+        habitService.getHabitDefinitions(),
         habitService.getCategories(),
     ]);
 
@@ -163,8 +169,10 @@ const habitAgentFlow = ai.defineFlow(
         name: h.name,
         description: h.description,
     }));
+    
+    const currentDate = new Date().toISOString().split('T')[0];
 
-    const { output } = await prompt({ query, habits, categories });
+    const { output } = await prompt({ query, habits, categories, currentDate });
     return output!;
   }
 );
