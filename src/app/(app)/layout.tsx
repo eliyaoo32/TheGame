@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/auth-provider';
 import { AppSidebar } from '@/components/app-sidebar';
 import { AppHeader } from '@/components/app-header';
@@ -10,6 +10,11 @@ import { Logo } from '@/components/icons';
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -20,9 +25,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   if (loading || !user) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
-        <Logo className="h-12 w-12 animate-pulse text-primary" />
+        {/* Only render the loader on the client to avoid hydration mismatch */}
+        {isMounted ? <Logo className="h-12 w-12 animate-pulse text-primary" /> : null}
       </div>
     );
+  }
+
+  // To prevent flash of content, ensure we don't render the main layout until mounted.
+  if (!isMounted) {
+    return null;
   }
 
   return (
