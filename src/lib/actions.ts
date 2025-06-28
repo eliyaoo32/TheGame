@@ -14,7 +14,7 @@ export async function invokeHabitAgent(input: z.infer<typeof agentQuerySchema>):
         const result = await habitAgent(validatedInput.query, validatedInput.userId);
         return { success: true, message: result.message };
     } catch(error) {
-        console.error(error);
+        console.error('failed to invoke agent', error);
         if (error instanceof z.ZodError) {
           return { success: false, error: 'Invalid input.' };
         }
