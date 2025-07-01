@@ -1,4 +1,3 @@
-
 import {
   collection,
   addDoc,
@@ -16,7 +15,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Habit, HabitFrequency, HabitReport, Category, HabitType } from '@/lib/types';
-import { startOfDay, startOfWeek, startOfMonth, endOfMonth, format, parse, endOfWeek, endOfDay, subDays } from 'date-fns';
+import { startOfDay, startOfWeek, startOfMonth, endOfMonth, format, parse, endOfWeek, endOfDay } from 'date-fns';
 import { parseDuration } from '@/lib/utils';
 
 // ========== CATEGORY FUNCTIONS ==========
@@ -605,8 +604,8 @@ export const getHabitsWithLastWeekReports = async (userId: string): Promise<{hab
         const habitsSnapshot = await getDocs(query(habitsCollectionRef));
         const habitsData = habitsSnapshot.docs.map(mapDocToHabit);
 
-        const sevenDaysAgo = startOfDay(subDays(new Date(), 7));
         const now = new Date();
+        const weekStart = startOfWeek(now, { weekStartsOn: 0 }); // Sunday
 
         const allReports: {habitName: string, value: any, reportedAt: string}[] = [];
 
@@ -614,7 +613,7 @@ export const getHabitsWithLastWeekReports = async (userId: string): Promise<{hab
             const reportsCollectionRef = collection(db, 'users', userId, 'habits', habit.id, 'reports');
             const reportsQuery = query(
                 reportsCollectionRef,
-                where('reportedAt', '>=', sevenDaysAgo),
+                where('reportedAt', '>=', weekStart),
                 where('reportedAt', '<=', now)
             );
             const reportsSnapshot = await getDocs(reportsQuery);

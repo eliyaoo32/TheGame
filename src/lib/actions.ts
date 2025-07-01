@@ -1,4 +1,3 @@
-
 'use server';
 
 import { habitAgent } from '@/ai/flows/habit-agent-flow';
@@ -8,6 +7,7 @@ import { dietQA } from '@/ai/flows/diet-qa-flow';
 import { getHabitsWithLastWeekReports } from '@/services/habits';
 import { z } from 'zod';
 import type { DietPlan } from './types';
+import { format } from 'date-fns';
 
 const agentQuerySchema = z.object({
   query: z.string().min(1),
@@ -42,12 +42,14 @@ export async function invokeAIFeedbacker(input: z.infer<typeof feedbackerQuerySc
     if (habits.length === 0) {
       return { success: true, feedback: "Welcome! To get started on your journey, create your first habit in the 'Manage Habits' page." };
     }
-
+    
+    const now = new Date();
     const result = await aiHabitFeedbacker({
       habits,
       reports,
-      currentDate: new Date().toISOString().split('T')[0],
+      currentDate: now.toISOString().split('T')[0],
       timeOfDay,
+      dayOfWeek: format(now, 'EEEE'),
     });
     
     return { success: true, feedback: result.feedback };
