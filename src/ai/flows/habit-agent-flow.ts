@@ -16,7 +16,7 @@ const AddHabitInputSchema = z.object({
     description: z.string().describe('A description of the habit.'),
     type: z.enum(['duration', 'time', 'boolean', 'number', 'options']).describe('The type of value the habit tracks.'),
     frequency: z.enum(['daily', 'weekly']).describe('How often the habit is tracked.'),
-    goal: z.string().describe('The specific goal for the habit.'),
+    goal: z.string().optional().describe('The specific goal for the habit. Required for types: number, duration, time.'),
     icon: z.string().describe("An icon name for the habit. Choose from: ['Dumbbell', 'Leaf', 'Carrot', 'BookOpen', 'GraduationCap', 'Languages', 'FolderKanban', 'Target', 'Clock']"),
     categoryId: z.string().optional().describe('The ID of the category this habit belongs to.'),
     options: z.string().optional().describe('Comma-separated list of options for "options" type habits.'),
@@ -112,7 +112,7 @@ const prompt = ai.definePrompt({
 Available Habits:
 {{#if habits}}
 {{#each habits}}
-- Name: "{{this.name}}", ID: {{this.id}}, Type: {{this.type}}{{#if this.options}}, Options: [{{this.options}}]{{/if}}, Goal: "{{this.goal}}"
+- Name: "{{this.name}}", ID: {{this.id}}, Type: {{this.type}}{{#if this.options}}, Options: [{{this.options}}]{{/if}}{{#if this.goal}}, Goal: "{{this.goal}}"{{/if}}
 {{/each}}
 {{else}}
 The user has no habits.

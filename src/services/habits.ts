@@ -60,7 +60,7 @@ type HabitInputData = {
     description: string;
     frequency: HabitFrequency;
     type: HabitType;
-    goal: string;
+    goal?: string;
     icon: string;
     options?: string;
     categoryId?: string;
@@ -177,11 +177,19 @@ export const getHabits = async (userId: string, date: Date): Promise<Habit[]> =>
             lastReportedValue = String(reports[reports.length - 1].value);
         }
         
-        const goalValue = (habit.type === 'boolean' || habit.type === 'time' || habit.type === 'options') 
-          ? 1 
-          : parseInt(habit.goal.match(/\d+/)?.[0] || '1', 10);
-        
-        const completed = progress >= goalValue;
+        let completed = false;
+        if (habit.goal) {
+            const goalValue = (habit.type === 'boolean' || habit.type === 'time' || habit.type === 'options') 
+              ? 1 
+              : parseInt(habit.goal.match(/\d+/)?.[0] || '1', 10);
+            
+            if (goalValue > 0) {
+              completed = progress >= goalValue;
+            }
+        } else {
+            // For habits without a goal, any progress marks them as complete for the day/week.
+            completed = progress > 0;
+        }
         
         return {
             ...habit,
@@ -230,7 +238,6 @@ export const addHabit = async (userId: string, habitData: HabitInputData) => {
     // Basic validation for required fields
     if (!habitData.name?.trim()) throw new Error('Habit name is required.');
     if (!habitData.description?.trim()) throw new Error('Habit description is required.');
-    if (!habitData.goal?.trim()) throw new Error('Habit goal is required.');
     if (!habitData.icon?.trim()) throw new Error('Habit icon is required.');
 
     const dataToSave: any = { ...habitData };
@@ -238,6 +245,7 @@ export const addHabit = async (userId: string, habitData: HabitInputData) => {
     // Type-specific goal validation and normalization
     switch (dataToSave.type) {
         case 'duration': {
+            if (!dataToSave.goal?.trim()) throw new Error('Goal is required for duration habits.');
             const minutes = parseDuration(dataToSave.goal);
             if (minutes === null) {
                 throw new Error('Invalid goal for duration habit. Use format like "2h", "90m", or "1h 30m".');
@@ -246,11 +254,13 @@ export const addHabit = async (userId: string, habitData: HabitInputData) => {
             break;
         }
         case 'time':
+            if (!dataToSave.goal?.trim()) throw new Error('Goal is required for time habits.');
             if (!/^\d{2}:\d{2}$/.test(dataToSave.goal)) {
                 throw new Error('Invalid goal for time habit. Please use HH:MM format.');
             }
             break;
         case 'number':
+            if (!dataToSave.goal?.trim()) throw new Error('Goal is required for number habits.');
             if (!/^\d+/.test(dataToSave.goal)) {
                 throw new Error('Invalid goal for number habit. Must start with a number (e.g., "25 pages").');
             }
@@ -259,6 +269,10 @@ export const addHabit = async (userId: string, habitData: HabitInputData) => {
             if (!dataToSave.options?.trim()) {
                 throw new Error('Options are required for this habit type.');
             }
+            // Goal is optional for 'options' type
+            break;
+        case 'boolean':
+            // Goal is optional for 'boolean' type
             break;
     }
 
@@ -343,6 +357,7 @@ export const updateHabit = async (userId: string, habitId: string, habitData: Pa
         // Perform validation on the new state
         switch (newType) {
             case 'duration': {
+                if (!newGoal?.trim()) throw new Error('Goal is required for duration habits.');
                 const minutes = parseDuration(newGoal);
                 if (minutes === null) {
                     throw new Error('Invalid goal for duration habit. Use format like "2h", "90m", or "1h 30m".');
@@ -351,11 +366,13 @@ export const updateHabit = async (userId: string, habitId: string, habitData: Pa
                 break;
             }
             case 'time':
+                if (!newGoal?.trim()) throw new Error('Goal is required for time habits.');
                 if (!/^\d{2}:\d{2}$/.test(newGoal)) {
                     throw new Error('Invalid goal for time habit. Please use HH:MM format.');
                 }
                 break;
             case 'number':
+                if (!newGoal?.trim()) throw new Error('Goal is required for number habits.');
                 if (!/^\d+/.test(newGoal)) {
                     throw new Error('Invalid goal for number habit. Must start with a number (e.g., "25 pages").');
                 }
@@ -365,6 +382,9 @@ export const updateHabit = async (userId: string, habitId: string, habitData: Pa
                 if (!newOptions?.trim()) {
                     throw new Error('Options are required for this habit type.');
                 }
+                break;
+            case 'boolean':
+                // Goal is optional
                 break;
         }
     }
@@ -623,4 +643,3 @@ export const getHabitsWithLastWeekReports = async (userId: string): Promise<{hab
         return { habits: [], reports: [] };
     }
 };
-

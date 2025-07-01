@@ -36,7 +36,7 @@ const addHabitSchema = z.object({
   description: z.string().min(1, 'Description is required.'),
   frequency: z.enum(['daily', 'weekly']),
   type: z.enum(['duration', 'time', 'boolean', 'number', 'options']),
-  goal: z.string().min(1, 'Goal is required.'),
+  goal: z.string().optional(),
   icon: z.string().min(1, 'Icon is required.'),
   options: z.string().optional(),
   categoryId: z.string().optional(),
@@ -84,7 +84,7 @@ export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange, catego
 
         form.reset({
           ...habitToEdit,
-          goal: goalValue,
+          goal: goalValue || '',
           options: habitToEdit.options || '',
           categoryId: habitToEdit.categoryId || '',
         });
@@ -115,9 +115,9 @@ export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange, catego
   
   const goalFieldInfo = {
     boolean: {
-        label: 'Goal Description',
+        label: 'Goal Description (Optional)',
         placeholder: 'e.g., Meditate for 10 minutes',
-        description: 'A simple "Done/Not Done" habit. The goal is the task itself.'
+        description: 'A simple "Done/Not Done" habit. The goal is optional.'
     },
     time: {
         label: 'Goal (Target Time)',
@@ -135,9 +135,9 @@ export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange, catego
         description: 'The target number (e.g., "25 pages", "8").'
     },
      options: {
-        label: 'Goal',
+        label: 'Goal (Optional)',
         placeholder: 'e.g., Eat a non-junky breakfast',
-        description: 'Describe the goal you want to achieve through your choices.'
+        description: 'Describe the goal you want to achieve through your choices. This is optional.'
     }
   };
 

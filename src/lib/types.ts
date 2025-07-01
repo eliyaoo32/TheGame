@@ -20,7 +20,7 @@ export type Habit = {
   type: HabitType;
   frequency: HabitFrequency;
   icon: string;
-  goal: string;
+  goal?: string; // For 'number' and 'duration', this is the target value. For others, it's a description.
   options?: string; // For type 'options', e.g., "Healthy, Junky"
   progress: number; // The actual tracked value for the period, NOT a percentage.
   completed: boolean;

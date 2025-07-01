@@ -14,7 +14,7 @@ const HabitInfoSchema = z.object({
   name: z.string(),
   description: z.string(),
   frequency: z.string(),
-  goal: z.string(),
+  goal: z.string().optional(),
   type: z.string(),
 });
 
@@ -54,7 +54,7 @@ Current Context:
 User's Habits:
 {{#each habits}}
 - Habit: "{{this.name}}" ({{this.frequency}})
-  - Goal: {{this.goal}}
+  - Goal: {{#if this.goal}}{{this.goal}}{{else}}Not set{{/if}}
   - Type: {{this.type}}
 {{/each}}
 

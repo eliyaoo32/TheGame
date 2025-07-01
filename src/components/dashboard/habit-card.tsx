@@ -38,46 +38,56 @@ export function HabitCard({ habit, onReport, onRestart, isUpdating }: HabitCardP
   };
 
   const getStatusText = () => {
+    const goal = habit.goal;
     switch (habit.type) {
       case 'time':
         if (habit.lastReportedValue) {
-          return `Reported at ${habit.lastReportedValue} (Goal: ${habit.goal})`;
+          return `Reported at ${habit.lastReportedValue}${goal ? ` (Goal: ${goal})` : ''}`;
         }
-        return `Goal: ${habit.goal}`;
+        return goal ? `Goal: ${goal}` : 'Log a time';
       case 'options':
         if (habit.lastReportedValue) {
           return `Last choice: ${habit.lastReportedValue}`;
         }
-        return `Goal: ${habit.goal}`;
+        return goal ? `Goal: ${goal}` : 'Make a choice';
       case 'boolean':
         if (habit.completed) {
-            return `Completed: ${habit.goal}`;
+            return `Completed${goal ? `: ${goal}` : ''}`;
         }
-        return `Goal: ${habit.goal}`;
+        return goal ? `Goal: ${goal}` : 'Mark as done';
       case 'number': {
-        const goalValue = parseInt(habit.goal, 10);
-        const goalUnit = habit.goal.replace(/^\d+\s*/, '');
         const currentValue = habit.progress || 0;
+        if (!goal) return `Progress: ${currentValue}`;
+        const goalValue = parseInt(goal.match(/\d+/)?.[0] || '0', 10);
+        const goalUnit = goal.replace(/^\d+\s*/, '');
         return `Progress: ${currentValue} / ${goalValue} ${goalUnit.trim()}`;
       }
       case 'duration': {
-        const goalValue = parseInt(habit.goal, 10);
         const currentValue = habit.progress || 0;
+        if (!goal) return `Progress: ${formatDuration(currentValue)}`;
+        const goalValue = parseInt(goal, 10); // Goal is already normalized to minutes string by service
         return `Progress: ${formatDuration(currentValue)} / ${formatDuration(goalValue)}`;
       }
       default:
-        return `Goal: ${habit.goal}`;
+        return goal ? `Goal: ${goal}` : '';
     }
   };
 
   const getProgressPercentage = () => {
+    const goal = habit.goal;
     if (habit.type === 'boolean' || habit.type === 'time' || habit.type === 'options') {
         const goalValue = 1;
         const percentage = ((habit.progress || 0) / goalValue) * 100;
         return Math.min(100, percentage);
     }
-    const goalValue = parseInt(habit.goal.match(/\d+/)?.[0] || '1', 10);
+    
+    if (!goal) {
+        return habit.progress > 0 ? 100 : 0; // If no goal, any progress is 100%
+    }
+    
+    const goalValue = parseInt(goal.match(/\d+/)?.[0] || '1', 10);
     if (goalValue <= 0) return 0;
+    
     const percentage = ((habit.progress || 0) / goalValue) * 100;
     return Math.min(100, percentage);
   };

@@ -22,7 +22,7 @@ const AiHabitFeedbackInputSchema = z.object({
   habitFrequency: z
     .enum(['daily', 'weekly'])
     .describe('How often the habit is tracked.'),
-  habitGoal: z.string().describe('The specific goal for the habit.'),
+  habitGoal: z.string().optional().describe('The specific goal for the habit.'),
   habitStatus: z
     .boolean()
     .describe('Whether the habit has been completed today.'),
@@ -65,7 +65,7 @@ const prompt = ai.definePrompt({
   Description: {{{habitDescription}}}
   Frequency: {{{habitFrequency}}}
   Type: {{{habitType}}}
-  Goal: {{{habitGoal}}}
+  Goal: {{#if habitGoal}}{{{habitGoal}}}{{else}}Not set{{/if}}
   Completion Status: {{{habitStatus}}}
   Last Completion Date: {{#if lastCompletionDate}}{{{lastCompletionDate}}}{{else}}Never{{/if}}
   User Preferences: {{#if userPreferences}}{{{userPreferences}}}{{else}}None{{/if}}
