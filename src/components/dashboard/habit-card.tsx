@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { Habit } from '@/lib/types';
@@ -14,7 +13,7 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { RotateCcw } from 'lucide-react';
 import { Badge } from '../ui/badge';
-import { cn } from '@/lib/utils';
+import { cn, formatDuration } from '@/lib/utils';
 import { HabitIcon } from '@/components/habit-icon';
 
 interface HabitCardProps {
@@ -55,16 +54,16 @@ export function HabitCard({ habit, onReport, onRestart, isUpdating }: HabitCardP
             return `Completed: ${habit.goal}`;
         }
         return `Goal: ${habit.goal}`;
-      case 'number':
-      case 'duration': {
-        const goalParts = habit.goal.match(/(\d+)\s*(.*)/);
-        if (!goalParts) {
-          return `Goal: ${habit.goal}`;
-        }
-        const goalValue = parseInt(goalParts[1], 10);
-        const unit = goalParts[2] || '';
+      case 'number': {
+        const goalValue = parseInt(habit.goal, 10);
+        const goalUnit = habit.goal.replace(/^\d+\s*/, '');
         const currentValue = habit.progress || 0;
-        return `Progress: ${currentValue} / ${goalValue} ${unit.trim()}`;
+        return `Progress: ${currentValue} / ${goalValue} ${goalUnit.trim()}`;
+      }
+      case 'duration': {
+        const goalValue = parseInt(habit.goal, 10);
+        const currentValue = habit.progress || 0;
+        return `Progress: ${formatDuration(currentValue)} / ${formatDuration(goalValue)}`;
       }
       default:
         return `Goal: ${habit.goal}`;

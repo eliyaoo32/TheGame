@@ -1,4 +1,3 @@
-
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import type { UserProfile } from './types';
@@ -27,3 +26,47 @@ export const calculateTDEE = (profile: UserProfile): number => {
 
   return Math.round(tdee);
 };
+
+export function parseDuration(durationStr: string): number | null {
+  if (!durationStr) return null;
+
+  // Handles formats like "1h 30m", "2h", "90m"
+  const durationRegex = /(?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?/;
+  const matches = durationStr.toLowerCase().trim().match(durationRegex);
+
+  // If no "h" or "m" is found, try to parse as a plain number (assumed minutes)
+  if (!matches || (matches[0] === '' && durationStr.match(/[a-z]/i))) {
+      const plainMinutes = parseInt(durationStr, 10);
+      if (!isNaN(plainMinutes) && String(plainMinutes) === durationStr) {
+        return plainMinutes;
+      }
+      return null;
+  }
+  
+  if (matches[0] === '') return null;
+
+  const hours = parseInt(matches[1] || '0', 10);
+  const minutes = parseInt(matches[2] || '0', 10);
+  
+  if (isNaN(hours) || isNaN(minutes)) return null;
+
+  const totalMinutes = hours * 60 + minutes;
+  return totalMinutes >= 0 ? totalMinutes : null;
+}
+
+export function formatDuration(totalMinutes: number): string {
+    if (isNaN(totalMinutes) || totalMinutes < 0) return '';
+    if (totalMinutes === 0) return '0m';
+
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    let result = '';
+    if (hours > 0) {
+        result += `${hours}h`;
+    }
+    if (minutes > 0) {
+        result += `${result.length > 0 ? ' ' : ''}${minutes}m`;
+    }
+    return result;
+}

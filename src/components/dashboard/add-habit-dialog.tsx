@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { Habit, HabitFrequency, HabitType, Category } from '@/lib/types';
+import { parseDuration, formatDuration } from '@/lib/utils';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -44,14 +45,50 @@ const addHabitSchema = z.object({
   icon: z.string().min(1, 'Icon is required.'),
   options: z.string().optional(),
   categoryId: z.string().optional(),
-}).refine(data => {
-    if (data.type === 'options') {
-        return data.options && data.options.trim().length > 0;
+}).superRefine((data, ctx) => {
+    switch (data.type) {
+        case 'duration': {
+            const minutes = parseDuration(data.goal);
+            if (minutes === null) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: 'Invalid format. Use "2h", "90m", or "1h 30m".',
+                    path: ['goal'],
+                });
+            }
+            break;
+        }
+        case 'time':
+            if (!/^\d{2}:\d{2}$/.test(data.goal)) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: 'Invalid time. Please use HH:MM format.',
+                    path: ['goal'],
+                });
+            }
+            break;
+        case 'number':
+            if (!/^\d+/.test(data.goal)) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: 'Goal must start with a number (e.g., "25 pages").',
+                    path: ['goal'],
+                });
+            }
+            break;
+        case 'options':
+            if (!data.options || data.options.trim().length === 0) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: 'Options are required for this habit type.',
+                    path: ['options'],
+                });
+            }
+            break;
+        case 'boolean':
+            // The goal is just a description, no specific format needed.
+            break;
     }
-    return true;
-}, {
-    message: 'Options are required for this habit type.',
-    path: ['options'],
 });
 
 type AddHabitFormValues = z.infer<typeof addHabitSchema>;
@@ -80,8 +117,14 @@ export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange, catego
   useEffect(() => {
     if (open) {
       if (habitToEdit) {
+        const goalValue =
+          habitToEdit.type === 'duration' && habitToEdit.goal
+            ? formatDuration(Number(habitToEdit.goal))
+            : habitToEdit.goal;
+
         form.reset({
           ...habitToEdit,
+          goal: goalValue,
           options: habitToEdit.options || '',
           categoryId: habitToEdit.categoryId || '',
         });
@@ -101,11 +144,18 @@ export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange, catego
   }, [habitToEdit, open, form]);
 
   const onSubmit = (data: AddHabitFormValues) => {
+    const dataToSave = { ...data };
+    if (data.type === 'duration') {
+        const minutes = parseDuration(data.goal);
+        if (minutes !== null) {
+            dataToSave.goal = String(minutes);
+        }
+    }
     onSave({
-      ...data,
+      ...dataToSave,
       id: habitToEdit?.id,
-      type: data.type as HabitType,
-      frequency: data.frequency as HabitFrequency
+      type: dataToSave.type as HabitType,
+      frequency: dataToSave.frequency as HabitFrequency
     });
     onOpenChange(false);
   };
@@ -119,17 +169,17 @@ export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange, catego
     time: {
         label: 'Goal (Target Time)',
         placeholder: 'e.g., 18:00',
-        description: 'The target time to complete the habit.'
+        description: 'The target time to complete the habit. Use HH:MM format.'
     },
     duration: {
-        label: 'Goal (Minutes)',
-        placeholder: 'e.g., 30',
-        description: 'The target duration in minutes.'
+        label: 'Goal (Duration)',
+        placeholder: 'e.g., 1h 30m, 90m, 2h',
+        description: 'The target duration. Will be stored in minutes.'
     },
     number: {
         label: 'Goal (Numeric)',
-        placeholder: 'e.g., 25',
-        description: 'The target number (e.g., pages, glasses of water).'
+        placeholder: 'e.g., 25 pages',
+        description: 'The target number (e.g., "25 pages", "8").'
     },
      options: {
         label: 'Goal',
