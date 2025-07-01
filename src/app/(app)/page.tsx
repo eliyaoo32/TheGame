@@ -98,9 +98,13 @@ export default function DashboardPage() {
         await addHabitReport(user.uid, habit.id, value, selectedDate);
         await fetchHabits(selectedDate); // Refetch to get the latest state from the server
         toast({ title: "Progress saved!", description: `Your progress for "${habit.name}" has been updated.`});
-      } catch (error) {
-         console.error("Failed to update habit:", error);
-         toast({ variant: 'destructive', title: 'Error', description: 'Could not save your progress.' });
+      } catch (error: any) {
+         console.error("Failed to save progress:", error);
+         toast({ 
+            variant: 'destructive', 
+            title: 'Error saving progress', 
+            description: error.message || 'Could not save your progress.'
+         });
          // Revert optimistic update by refetching everything
          if (selectedDate) {
             fetchHabits(selectedDate);

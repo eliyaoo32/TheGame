@@ -15,8 +15,9 @@ import {
   type QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Habit, HabitFrequency, HabitReport, Category } from '@/lib/types';
+import type { Habit, HabitFrequency, HabitReport, Category, HabitType } from '@/lib/types';
 import { startOfDay, startOfWeek, startOfMonth, endOfMonth, format, parse, endOfWeek, endOfDay, subDays } from 'date-fns';
+import { parseDuration } from '@/lib/utils';
 
 // ========== CATEGORY FUNCTIONS ==========
 
@@ -54,6 +55,16 @@ export const deleteCategory = async (userId: string, id: string) => {
 
 // ========== HABIT FUNCTIONS ==========
 
+type HabitInputData = {
+    name: string;
+    description: string;
+    frequency: HabitFrequency;
+    type: HabitType;
+    goal: string;
+    icon: string;
+    options?: string;
+    categoryId?: string;
+};
 
 const mapDocToHabit = (doc: QueryDocumentSnapshot<DocumentData, DocumentData>): Omit<Habit, 'reports' | 'progress' | 'completed' | 'lastReportedValue' | 'categoryName'> => {
     const data = doc.data();
@@ -215,18 +226,49 @@ export const getHabitById = async (userId: string, habitId: string): Promise<Omi
     }
 }
 
-export const addHabit = async (userId: string, habitData: Partial<Omit<Habit, 'id' | 'progress' | 'completed' | 'reports' | 'lastReportedValue' | 'categoryName'>>) => {
-  const habitsCollectionRef = collection(db, 'users', userId, 'habits');
-  // The incoming habitData can have `id: undefined` when a new habit is created
-  // from a form that also handles editing. Firestore rejects `undefined` values.
-  // We destructure here to ensure `id` is not passed to Firestore.
-  const { id, ...dataToSave } = habitData;
-  const newHabit = {
-    ...dataToSave,
-    createdAt: Timestamp.now(),
-  };
-  const docRef = await addDoc(habitsCollectionRef, newHabit);
-  return docRef.id;
+export const addHabit = async (userId: string, habitData: HabitInputData) => {
+    // Basic validation for required fields
+    if (!habitData.name?.trim()) throw new Error('Habit name is required.');
+    if (!habitData.description?.trim()) throw new Error('Habit description is required.');
+    if (!habitData.goal?.trim()) throw new Error('Habit goal is required.');
+    if (!habitData.icon?.trim()) throw new Error('Habit icon is required.');
+
+    const dataToSave: any = { ...habitData };
+
+    // Type-specific goal validation and normalization
+    switch (dataToSave.type) {
+        case 'duration': {
+            const minutes = parseDuration(dataToSave.goal);
+            if (minutes === null) {
+                throw new Error('Invalid goal for duration habit. Use format like "2h", "90m", or "1h 30m".');
+            }
+            dataToSave.goal = String(minutes); // Normalize to minutes
+            break;
+        }
+        case 'time':
+            if (!/^\d{2}:\d{2}$/.test(dataToSave.goal)) {
+                throw new Error('Invalid goal for time habit. Please use HH:MM format.');
+            }
+            break;
+        case 'number':
+            if (!/^\d+/.test(dataToSave.goal)) {
+                throw new Error('Invalid goal for number habit. Must start with a number (e.g., "25 pages").');
+            }
+            break;
+        case 'options':
+            if (!dataToSave.options?.trim()) {
+                throw new Error('Options are required for this habit type.');
+            }
+            break;
+    }
+
+    const habitsCollectionRef = collection(db, 'users', userId, 'habits');
+    const newHabit = {
+        ...dataToSave,
+        createdAt: Timestamp.now(),
+    };
+    const docRef = await addDoc(habitsCollectionRef, newHabit);
+    return docRef.id;
 };
 
 export const addHabitReport = async (userId: string, habitId: string, value: any, date: Date = new Date()) => {
@@ -283,17 +325,60 @@ export const addHabitReport = async (userId: string, habitId: string, value: any
 };
 
 
-export const updateHabit = async (userId: string, habitId: string, habitData: Partial<Omit<Habit, 'id' | 'progress' | 'completed' | 'reports' | 'lastReportedValue' | 'categoryName'>>) => {
-  const habitDoc = doc(db, 'users', userId, 'habits', habitId);
-  
-  const updateData: { [key: string]: any } = {};
-  for (const key in habitData) {
-    if ((habitData as any)[key] !== undefined) {
-      updateData[key] = (habitData as any)[key];
-    }
-  }
+export const updateHabit = async (userId: string, habitId: string, habitData: Partial<HabitInputData>) => {
+    const habitDocRef = doc(db, 'users', userId, 'habits', habitId);
+    const dataToUpdate: { [key: string]: any } = { ...habitData };
 
-  await updateDoc(habitDoc, updateData);
+    // If goal or type is being updated, we need to re-validate against the final intended state
+    if (dataToUpdate.goal !== undefined || dataToUpdate.type !== undefined) {
+        const existingHabitSnap = await getDoc(habitDocRef);
+        if (!existingHabitSnap.exists()) {
+            throw new Error("Cannot update a habit that does not exist.");
+        }
+        const existingHabit = existingHabitSnap.data() as Habit;
+
+        const newType = dataToUpdate.type || existingHabit.type;
+        const newGoal = dataToUpdate.goal !== undefined ? dataToUpdate.goal : existingHabit.goal;
+
+        // Perform validation on the new state
+        switch (newType) {
+            case 'duration': {
+                const minutes = parseDuration(newGoal);
+                if (minutes === null) {
+                    throw new Error('Invalid goal for duration habit. Use format like "2h", "90m", or "1h 30m".');
+                }
+                dataToUpdate.goal = String(minutes); // Normalize to minutes
+                break;
+            }
+            case 'time':
+                if (!/^\d{2}:\d{2}$/.test(newGoal)) {
+                    throw new Error('Invalid goal for time habit. Please use HH:MM format.');
+                }
+                break;
+            case 'number':
+                if (!/^\d+/.test(newGoal)) {
+                    throw new Error('Invalid goal for number habit. Must start with a number (e.g., "25 pages").');
+                }
+                break;
+            case 'options':
+                const newOptions = dataToUpdate.options !== undefined ? dataToUpdate.options : existingHabit.options;
+                if (!newOptions?.trim()) {
+                    throw new Error('Options are required for this habit type.');
+                }
+                break;
+        }
+    }
+  
+    // Remove any fields that are explicitly set to undefined to avoid errors.
+    for (const key in dataToUpdate) {
+        if (dataToUpdate[key] === undefined) {
+            delete dataToUpdate[key];
+        }
+    }
+
+    if (Object.keys(dataToUpdate).length > 0) {
+        await updateDoc(habitDocRef, dataToUpdate);
+    }
 };
 
 export const deleteHabit = async (userId: string, habitId: string) => {
@@ -472,8 +557,11 @@ export const getUniqueReportMonths = async (userId: string): Promise<Date[]> => 
 
     const uniqueMonths = new Set<string>(); // 'YYYY-MM'
     allReportsTimestamps.forEach(ts => {
-        const date = ts.toDate();
-        uniqueMonths.add(format(date, 'yyyy-MM'));
+        // Double check if `ts` is valid before calling `toDate`
+        if (ts && typeof ts.toDate === 'function') {
+            const date = ts.toDate();
+            uniqueMonths.add(format(date, 'yyyy-MM'));
+        }
     });
 
     return Array.from(uniqueMonths)
@@ -535,3 +623,4 @@ export const getHabitsWithLastWeekReports = async (userId: string): Promise<{hab
         return { habits: [], reports: [] };
     }
 };
+

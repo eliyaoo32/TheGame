@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { Habit, Category } from '@/lib/types';
+import type { Habit, Category, HabitType, HabitFrequency } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -45,6 +45,18 @@ import { useAuth } from '@/context/auth-provider';
 import { getHabitDefinitions, addHabit, updateHabit, deleteHabit, getCategories, addCategory, updateCategory, deleteCategory, updateHabitsCategory } from '@/services/habits';
 import { Skeleton } from '@/components/ui/skeleton';
 import { HabitIcon } from '@/components/habit-icon';
+
+type HabitFormData = {
+    id?: string;
+    name: string;
+    description: string;
+    frequency: HabitFrequency;
+    type: HabitType;
+    goal: string;
+    icon: string;
+    options?: string;
+    categoryId?: string;
+};
 
 export default function ManageHabitsPage() {
   const { user } = useAuth();
@@ -103,20 +115,25 @@ export default function ManageHabitsPage() {
 
   // ========== HABIT HANDLERS ==========
 
-  const handleSaveHabit = async (savedHabitData: Omit<Habit, 'id' | 'progress' | 'completed' | 'reports' | 'lastReportedValue' | 'categoryName'> & { id?: string }) => {
+  const handleSaveHabit = async (savedHabitData: HabitFormData) => {
     if (!user) return;
     try {
-      if (savedHabitData.id) {
-        await updateHabit(user.uid, savedHabitData.id, savedHabitData);
-        toast({ title: 'Habit updated!', description: `"${savedHabitData.name}" has been saved.` });
+      const { id, ...data } = savedHabitData;
+      if (id) {
+        await updateHabit(user.uid, id, data);
+        toast({ title: 'Habit updated!', description: `"${data.name}" has been saved.` });
       } else {
-        await addHabit(user.uid, savedHabitData);
-        toast({ title: 'Habit added!', description: `"${savedHabitData.name}" has been saved.` });
+        await addHabit(user.uid, data);
+        toast({ title: 'Habit added!', description: `"${data.name}" has been saved.` });
       }
       fetchData(); // Refetch all data to keep UI in sync
-    } catch (error) {
+    } catch (error: any) {
         console.error("Failed to save habit:", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to save habit. Please try again.' });
+        toast({ 
+            variant: 'destructive', 
+            title: 'Error saving habit', 
+            description: error.message || 'An unexpected error occurred. Please try again.'
+        });
     }
   };
 

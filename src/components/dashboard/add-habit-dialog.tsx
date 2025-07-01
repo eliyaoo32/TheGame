@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect } from 'react';
@@ -5,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { Habit, HabitFrequency, HabitType, Category } from '@/lib/types';
-import { parseDuration, formatDuration } from '@/lib/utils';
+import { formatDuration } from '@/lib/utils';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -28,14 +29,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Textarea } from '@/components/ui/textarea';
 import { HabitIcon } from '@/components/habit-icon';
 
-interface AddHabitDialogProps {
-  onSave: (habit: Omit<Habit, 'id' | 'progress' | 'completed' | 'reports' | 'lastReportedValue' | 'categoryName'> & { id?: string }) => void;
-  habitToEdit?: Habit;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  categories: Category[];
-}
-
+// This schema provides basic client-side validation for required fields.
+// Complex validation (e.g., goal format per type) is handled by the backend service.
 const addHabitSchema = z.object({
   name: z.string().min(1, 'Name is required.'),
   description: z.string().min(1, 'Description is required.'),
@@ -45,53 +40,17 @@ const addHabitSchema = z.object({
   icon: z.string().min(1, 'Icon is required.'),
   options: z.string().optional(),
   categoryId: z.string().optional(),
-}).superRefine((data, ctx) => {
-    switch (data.type) {
-        case 'duration': {
-            const minutes = parseDuration(data.goal);
-            if (minutes === null) {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    message: 'Invalid format. Use "2h", "90m", or "1h 30m".',
-                    path: ['goal'],
-                });
-            }
-            break;
-        }
-        case 'time':
-            if (!/^\d{2}:\d{2}$/.test(data.goal)) {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    message: 'Invalid time. Please use HH:MM format.',
-                    path: ['goal'],
-                });
-            }
-            break;
-        case 'number':
-            if (!/^\d+/.test(data.goal)) {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    message: 'Goal must start with a number (e.g., "25 pages").',
-                    path: ['goal'],
-                });
-            }
-            break;
-        case 'options':
-            if (!data.options || data.options.trim().length === 0) {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    message: 'Options are required for this habit type.',
-                    path: ['options'],
-                });
-            }
-            break;
-        case 'boolean':
-            // The goal is just a description, no specific format needed.
-            break;
-    }
 });
 
 type AddHabitFormValues = z.infer<typeof addHabitSchema>;
+
+interface AddHabitDialogProps {
+  onSave: (habit: AddHabitFormValues & { id?: string }) => void;
+  habitToEdit?: Habit;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  categories: Category[];
+}
 
 const iconNames = ['Dumbbell', 'Leaf', 'Carrot', 'BookOpen', 'GraduationCap', 'Languages', 'FolderKanban', 'Target', 'Clock'];
 
@@ -117,6 +76,7 @@ export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange, catego
   useEffect(() => {
     if (open) {
       if (habitToEdit) {
+        // When editing a duration habit, display it in a user-friendly format (e.g., "1h 30m")
         const goalValue =
           habitToEdit.type === 'duration' && habitToEdit.goal
             ? formatDuration(Number(habitToEdit.goal))
@@ -144,18 +104,11 @@ export function AddHabitDialog({ onSave, habitToEdit, open, onOpenChange, catego
   }, [habitToEdit, open, form]);
 
   const onSubmit = (data: AddHabitFormValues) => {
-    const dataToSave = { ...data };
-    if (data.type === 'duration') {
-        const minutes = parseDuration(data.goal);
-        if (minutes !== null) {
-            dataToSave.goal = String(minutes);
-        }
-    }
+    // Pass the raw form data to the parent.
+    // The service layer will handle validation and normalization (e.g., converting "2h" to "120").
     onSave({
-      ...dataToSave,
+      ...data,
       id: habitToEdit?.id,
-      type: dataToSave.type as HabitType,
-      frequency: dataToSave.frequency as HabitFrequency
     });
     onOpenChange(false);
   };
