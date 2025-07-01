@@ -23,7 +23,7 @@ import {
 import type { Habit, HabitReport } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/auth-provider';
-import { cn } from '@/lib/utils';
+import { cn, formatReportValue } from '@/lib/utils';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
@@ -85,9 +85,8 @@ export default function ReportsPage() {
       setAvailableMonths(sortedMonths);
       
       // Set selectedMonth to current month by default if it's not already set by the user
-      if (!selectedMonth) {
-          setSelectedMonth(currentMonthString);
-      }
+      setSelectedMonth(currentMonthString);
+
     } catch (error) {
       console.error('Failed to fetch report months:', error);
       toast({
@@ -98,7 +97,7 @@ export default function ReportsPage() {
     } finally {
       setIsMonthsLoading(false);
     }
-  }, [user, toast, selectedMonth]);
+  }, [user, toast]);
 
   useEffect(() => {
     if (user) {
@@ -344,7 +343,7 @@ export default function ReportsPage() {
                                                                             <HabitIcon name={habit.icon} className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                                                                             <div>
                                                                                 <p className="font-medium">{habit.name}</p>
-                                                                                <p className="text-muted-foreground">Value: {value}</p>
+                                                                                <p className="text-muted-foreground">Value: {formatReportValue(value, habit.type)}</p>
                                                                             </div>
                                                                         </div>
                                                                     </div>
@@ -414,7 +413,7 @@ export default function ReportsPage() {
                                             {daysOfWeek.map(day => {
                                                 const dayKey = format(day, 'yyyy-MM-dd');
                                                 const value = item.reports.get(dayKey);
-                                                return <TableCell key={day.toISOString()} className="text-center">{value || '—'}</TableCell>
+                                                return <TableCell key={day.toISOString()} className="text-center">{formatReportValue(value, item.habit.type)}</TableCell>
                                             })}
                                         </TableRow>
                                     )

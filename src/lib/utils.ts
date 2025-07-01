@@ -1,6 +1,7 @@
+
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import type { UserProfile } from './types';
+import type { UserProfile, HabitType } from './types';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -69,4 +70,23 @@ export function formatDuration(totalMinutes: number): string {
         result += `${result.length > 0 ? ' ' : ''}${minutes}m`;
     }
     return result;
+}
+
+export function formatReportValue(value: any, type: HabitType): string {
+  if (value === undefined || value === null || value === '') {
+    return '—';
+  }
+
+  switch (type) {
+    case 'duration':
+      return formatDuration(Number(value));
+    case 'boolean':
+      // The value can be a boolean `true` or a string "true"
+      return value === true || value === 'true' ? '✓' : '✗';
+    case 'time':
+    case 'number':
+    case 'options':
+    default:
+      return String(value);
+  }
 }
