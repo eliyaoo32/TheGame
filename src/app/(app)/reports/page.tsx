@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   format,
   parse,
@@ -44,6 +44,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { HabitIcon } from '@/components/habit-icon';
+import { AIAgentBar } from '@/components/dashboard/ai-agent-bar';
 
 type WeeklyTableItem =
   | { isHeader: true; categoryName: string }
@@ -63,80 +64,83 @@ export default function ReportsPage() {
   useEffect(() => {
     setCurrentDate(new Date());
   }, []);
+  
+  const fetchMonths = useCallback(async () => {
+    if (!user) return;
+    setIsMonthsLoading(true);
+    try {
+      const reportedMonths = await getUniqueReportMonths(user.uid);
+      const reportedMonthStrings = reportedMonths.map((m) => format(m, 'yyyy-MM'));
+
+      const currentMonthString = format(new Date(), 'yyyy-MM');
+
+      // Use a set to ensure uniqueness and then sort chronologically
+      const allMonthStrings = Array.from(new Set([currentMonthString, ...reportedMonthStrings]));
+      
+      const sortedMonths = allMonthStrings
+          .map(ym => parse(ym, 'yyyy-MM', new Date()))
+          .sort((a, b) => b.getTime() - a.getTime())
+          .map(d => format(d, 'yyyy-MM'));
+
+      setAvailableMonths(sortedMonths);
+      
+      // Set selectedMonth to current month by default if it's not already set by the user
+      if (!selectedMonth) {
+          setSelectedMonth(currentMonthString);
+      }
+    } catch (error) {
+      console.error('Failed to fetch report months:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not load available months for reports.',
+      });
+    } finally {
+      setIsMonthsLoading(false);
+    }
+  }, [user, toast, selectedMonth]);
 
   useEffect(() => {
-    async function fetchMonths() {
-      if (!user) return;
-      setIsMonthsLoading(true);
-      try {
-        const reportedMonths = await getUniqueReportMonths(user.uid);
-        const reportedMonthStrings = reportedMonths.map((m) => format(m, 'yyyy-MM'));
-
-        const currentMonthString = format(new Date(), 'yyyy-MM');
-
-        // Use a set to ensure uniqueness and then sort chronologically
-        const allMonthStrings = Array.from(new Set([currentMonthString, ...reportedMonthStrings]));
-        
-        const sortedMonths = allMonthStrings
-            .map(ym => parse(ym, 'yyyy-MM', new Date()))
-            .sort((a, b) => b.getTime() - a.getTime())
-            .map(d => format(d, 'yyyy-MM'));
-
-        setAvailableMonths(sortedMonths);
-        
-        // Set selectedMonth to current month by default if it's not already set by the user
-        if (!selectedMonth) {
-            setSelectedMonth(currentMonthString);
-        }
-      } catch (error) {
-        console.error('Failed to fetch report months:', error);
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: 'Could not load available months for reports.',
-        });
-      } finally {
-        setIsMonthsLoading(false);
-      }
-    }
     if (user) {
       fetchMonths();
     }
-  }, [user, toast]);
+  }, [user, fetchMonths]);
+
+  const fetchReports = useCallback(async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+      if (activeTab === 'calendar') {
+        if (!selectedMonth) {
+          setHabits([]);
+          setIsLoading(false);
+          return;
+        }
+        const monthDate = parse(selectedMonth, 'yyyy-MM', new Date());
+        const fetchedHabits = await getHabitsWithReportsForMonth(user.uid, monthDate);
+        setHabits(fetchedHabits);
+      } else if (activeTab === 'table') {
+        if (!currentDate) return;
+        const fetchedHabits = await getHabitsWithReportsForWeek(user.uid, currentDate);
+        setHabits(fetchedHabits);
+      }
+    } catch (error) {
+      console.error(`Failed to fetch reports for ${activeTab}:`, error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not load report data.',
+      });
+      setHabits([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedMonth, activeTab, toast, user, currentDate]);
 
   useEffect(() => {
-    async function fetchReports() {
-      if (!user) return;
-      setIsLoading(true);
-      try {
-        if (activeTab === 'calendar') {
-          if (!selectedMonth) {
-            setHabits([]);
-            setIsLoading(false);
-            return;
-          }
-          const monthDate = parse(selectedMonth, 'yyyy-MM', new Date());
-          const fetchedHabits = await getHabitsWithReportsForMonth(user.uid, monthDate);
-          setHabits(fetchedHabits);
-        } else if (activeTab === 'table') {
-          if (!currentDate) return;
-          const fetchedHabits = await getHabitsWithReportsForWeek(user.uid, currentDate);
-          setHabits(fetchedHabits);
-        }
-      } catch (error) {
-        console.error(`Failed to fetch reports for ${activeTab}:`, error);
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: 'Could not load report data.',
-        });
-        setHabits([]);
-      } finally {
-        setIsLoading(false);
-      }
-    }
     fetchReports();
-  }, [selectedMonth, activeTab, toast, user, currentDate]);
+  }, [fetchReports]);
+
 
   const { calendarGrid, reportsByDate } = useMemo(() => {
     if (!selectedMonth || activeTab !== 'calendar') return { calendarGrid: [], reportsByDate: new Map() };
@@ -258,6 +262,7 @@ export default function ReportsPage() {
 
   return (
     <div className="flex flex-col gap-6">
+       <AIAgentBar onSuccess={fetchReports} />
        <div className="flex items-center">
         <div>
             <h1 className="text-lg font-semibold md:text-2xl font-headline">
