@@ -6,6 +6,27 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'TheGame',
   description: 'Level up your life.',
+  manifest: '/manifest.json',
+  icons: {
+    apple: '/icon.svg',
+    icon: '/icon.svg',
+  },
+  themeColor: '#008080',
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'TheGame',
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  applicationName: 'TheGame',
 };
 
 export default function RootLayout({
