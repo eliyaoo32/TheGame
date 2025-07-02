@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { DietTargets, Meal } from '@/lib/types';
@@ -14,10 +13,10 @@ interface NutritionSummaryProps {
 export function NutritionSummary({ targets, meals }: NutritionSummaryProps) {
   const totals = meals.reduce((acc, meal) => {
     meal.foods.forEach(food => {
-      acc.calories += food.calories;
-      acc.protein += food.protein;
-      acc.carbs += food.carbs;
-      acc.fat += food.fat;
+      acc.calories += food.calories || 0;
+      acc.protein += food.protein || 0;
+      acc.carbs += food.carbs || 0;
+      acc.fat += food.fat || 0;
     });
     return acc;
   }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
@@ -46,13 +45,15 @@ export function NutritionSummary({ targets, meals }: NutritionSummaryProps) {
           </TableHeader>
           <TableBody>
             {summaryData.map(item => {
-              const remaining = item.target - item.current;
+              const currentVal = item.current || 0;
+              const targetVal = item.target || 0;
+              const remaining = targetVal - currentVal;
               const isOver = remaining < 0;
               return (
                 <TableRow key={item.name}>
                   <TableCell className="font-medium">{item.name}</TableCell>
-                  <TableCell className="text-right">{item.current}</TableCell>
-                  <TableCell className="text-right">{item.target}</TableCell>
+                  <TableCell className="text-right">{currentVal}</TableCell>
+                  <TableCell className="text-right">{targetVal}</TableCell>
                   <TableCell className={cn(
                     "text-right font-semibold",
                     isOver ? "text-destructive" : "text-green-600"
