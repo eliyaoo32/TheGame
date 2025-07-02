@@ -8,7 +8,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 
-export const calculateTDEE = (profile: UserProfile): number => {
+export const calculateTDEE = (profile: UserProfile): { bmr: number; tdee: number } => {
   const { age, weight, weightUnit, height, heightUnit, gender } = profile;
 
   const weightInKg = weightUnit === 'lbs' ? weight / 2.20462 : weight;
@@ -22,10 +22,13 @@ export const calculateTDEE = (profile: UserProfile): number => {
     bmr = 10 * weightInKg + 6.25 * heightInCm - 5 * age - 161;
   }
 
-  // TDEE = BMR * Activity Factor (1.55 for moderately active)
-  const tdee = bmr * 1.55;
+  // TDEE = BMR * Activity Factor (1.3 for moderately active as requested)
+  const tdee = bmr * 1.3;
 
-  return Math.round(tdee);
+  return {
+    bmr: Math.round(bmr),
+    tdee: Math.round(tdee),
+  };
 };
 
 export function parseDuration(durationStr: string): number | null {

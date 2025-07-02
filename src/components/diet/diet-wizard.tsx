@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { DietPlan, UserProfile, DietTargets, Meal } from '@/lib/types';
+import type { DietPlan, UserProfile, DietTargets, Meal, DietObjective } from '@/lib/types';
 import { StepProfile } from './step-profile';
 import { StepTargets } from './step-targets';
 import { StepMeals } from './step-meals';
@@ -39,8 +39,8 @@ export function DietWizard({ onComplete }: DietWizardProps) {
         Let's set up your personalized nutrition guide in a few simple steps.
       </p>
 
-      {step === 1 && <StepProfile onNext={(data: { profile: UserProfile, objective: any }) => handleNext(data)} />}
-      {step === 2 && dietPlan.profile && <StepTargets profile={dietPlan.profile} onNext={(data: { targets: DietTargets }) => handleNext(data)} onBack={handleBack} />}
+      {step === 1 && <StepProfile onNext={(data: { profile: UserProfile, objective: DietObjective }) => handleNext(data)} />}
+      {step === 2 && dietPlan.profile && dietPlan.objective && <StepTargets profile={dietPlan.profile} objective={dietPlan.objective} onNext={(data: { targets: DietTargets }) => handleNext(data)} onBack={handleBack} />}
       {step === 3 && <StepMeals onFinish={handleFinish} onBack={handleBack} />}
     </div>
   );

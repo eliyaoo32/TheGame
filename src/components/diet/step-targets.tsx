@@ -1,16 +1,16 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import type { UserProfile, DietTargets } from '@/lib/types';
+import type { UserProfile, DietTargets, DietObjective } from '@/lib/types';
 import { calculateTDEE } from '@/lib/utils';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Info } from 'lucide-react';
 
 const targetsSchema = z.object({
@@ -24,35 +24,50 @@ type TargetsFormValues = z.infer<typeof targetsSchema>;
 
 interface StepTargetsProps {
   profile: UserProfile;
+  objective: DietObjective;
   onNext: (data: { targets: DietTargets }) => void;
   onBack: () => void;
 }
 
-export function StepTargets({ profile, onNext, onBack }: StepTargetsProps) {
-  const tdee = calculateTDEE(profile);
-  
+export function StepTargets({ profile, objective, onNext, onBack }: StepTargetsProps) {
+  const { bmr, tdee, suggestedGoalCalories } = useMemo(() => {
+    const { bmr, tdee } = calculateTDEE(profile);
+    let goalCalories = tdee;
+    if (objective === 'lose_weight') {
+      goalCalories -= 500;
+    } else if (objective === 'gain_weight') {
+      goalCalories += 500;
+    }
+    return { bmr, tdee, suggestedGoalCalories: goalCalories };
+  }, [profile, objective]);
+
   const form = useForm<TargetsFormValues>({
     resolver: zodResolver(targetsSchema),
     defaultValues: {
-      calories: tdee,
-      protein: Math.round((tdee * 0.3) / 4), // Default to 30% from protein
-      carbs: Math.round((tdee * 0.4) / 4), // Default to 40% from carbs
-      fat: Math.round((tdee * 0.3) / 9), // Default to 30% from fat
+      calories: 0,
+      protein: 0,
+      carbs: 0,
+      fat: 0,
     },
   });
 
   useEffect(() => {
     form.reset({
-      calories: tdee,
-      protein: Math.round((tdee * 0.3) / 4),
-      carbs: Math.round((tdee * 0.4) / 4),
-      fat: Math.round((tdee * 0.3) / 9),
+      calories: suggestedGoalCalories,
+      protein: Math.round((suggestedGoalCalories * 0.3) / 4),
+      carbs: Math.round((suggestedGoalCalories * 0.4) / 4),
+      fat: Math.round((suggestedGoalCalories * 0.3) / 9),
     });
-  }, [tdee, form]);
-
+  }, [suggestedGoalCalories, form]);
 
   const onSubmit = (values: TargetsFormValues) => {
     onNext({ targets: values });
+  };
+
+  const objectiveTextMap: Record<DietObjective, string> = {
+    lose_weight: 'a 500 calorie deficit to lose weight',
+    gain_weight: 'a 500 calorie surplus to gain weight',
+    maintain_weight: 'your maintenance level to maintain weight',
   };
 
   return (
@@ -61,20 +76,39 @@ export function StepTargets({ profile, onNext, onBack }: StepTargetsProps) {
         <CardTitle className="text-center">Step 2: Define Your Targets</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="mb-6 p-4 bg-primary/10 border border-primary/20 rounded-lg flex items-start gap-4">
-            <Info className="h-5 w-5 text-primary mt-1" />
+        <div className="mb-6 p-4 bg-primary/10 border border-primary/20 rounded-lg flex flex-col gap-4">
+          <div className="flex items-start gap-3">
+            <Info className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
             <div>
-                <h3 className="font-semibold text-primary">Suggested Daily Calories</h3>
-                <p className="text-sm text-muted-foreground">
-                    Based on your profile, we suggest about <strong className="text-foreground">{tdee} kcal</strong> per day to maintain your current weight. Adjust this and the macronutrients below to match your goals.
-                </p>
+              <h3 className="font-semibold text-primary">Your Caloric Needs</h3>
+              <p className="text-sm text-muted-foreground">
+                Here's a breakdown based on your profile. These are estimates, so feel free to adjust them.
+              </p>
             </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+            <div>
+              <p className="text-sm text-muted-foreground">Basal Metabolic Rate (BMR)</p>
+              <p className="text-lg font-bold text-foreground">{bmr} kcal</p>
+              <p className="text-xs text-muted-foreground">Calories you burn at rest.</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Daily Burn (TDEE)</p>
+              <p className="text-lg font-bold text-foreground">{tdee} kcal</p>
+              <p className="text-xs text-muted-foreground">BMR x 1.3 activity factor.</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Suggested Goal</p>
+              <p className="text-lg font-bold text-primary">{suggestedGoalCalories} kcal</p>
+              <p className="text-xs text-muted-foreground">Based on {objectiveTextMap[objective]}.</p>
+            </div>
+          </div>
         </div>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField name="calories" control={form.control} render={({ field }) => (
               <FormItem>
-                <FormLabel>Daily Calories (kcal)</FormLabel>
+                <FormLabel>Daily Calories Goal (kcal)</FormLabel>
                 <FormControl><Input type="number" {...field} /></FormControl>
                 <FormMessage />
               </FormItem>
