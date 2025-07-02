@@ -1,10 +1,9 @@
-
 'use client';
 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import type { UserProfile, Gender, DietObjective, WeightUnit, HeightUnit } from '@/lib/types';
+import type { UserProfile, Gender, DietObjective } from '@/lib/types';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -14,9 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 const profileSchema = z.object({
   age: z.coerce.number().min(1, "Age is required"),
   weight: z.coerce.number().min(1, "Weight is required"),
-  weightUnit: z.enum(['kg', 'lbs']),
   height: z.coerce.number().min(1, "Height is required"),
-  heightUnit: z.enum(['cm', 'in']),
   gender: z.enum(['male', 'female']),
   objective: z.enum(['lose_weight', 'maintain_weight', 'gain_weight']),
 });
@@ -33,16 +30,19 @@ export function StepProfile({ onNext }: StepProfileProps) {
     defaultValues: {
       age: 30,
       weight: 70,
-      weightUnit: 'kg',
       height: 175,
-      heightUnit: 'cm',
       gender: 'male',
       objective: 'maintain_weight',
     },
   });
 
   const onSubmit = (values: ProfileFormValues) => {
-    const { objective, ...profile } = values;
+    const { objective, ...profileData } = values;
+    const profile: UserProfile = {
+      ...profileData,
+      weightUnit: 'kg',
+      heightUnit: 'cm',
+    };
     onNext({ profile, objective });
   };
 
@@ -80,17 +80,11 @@ export function StepProfile({ onNext }: StepProfileProps) {
               <FormField name="weight" control={form.control} render={({ field }) => (
                  <FormItem>
                     <FormLabel>Weight</FormLabel>
-                    <div className="flex gap-2">
-                      <FormControl><Input type="number" {...field} className="flex-grow" /></FormControl>
-                      <FormField name="weightUnit" control={form.control} render={({ field: unitField }) => (
-                         <Select onValueChange={unitField.onChange} defaultValue={unitField.value}>
-                            <FormControl><SelectTrigger className="w-24"><SelectValue /></SelectTrigger></FormControl>
-                            <SelectContent>
-                              <SelectItem value="kg">kg</SelectItem>
-                              <SelectItem value="lbs">lbs</SelectItem>
-                            </SelectContent>
-                         </Select>
-                      )} />
+                    <div className="relative">
+                      <FormControl><Input type="number" {...field} className="pr-10" /></FormControl>
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-muted-foreground">
+                        kg
+                      </div>
                     </div>
                     <FormMessage />
                   </FormItem>
@@ -98,18 +92,12 @@ export function StepProfile({ onNext }: StepProfileProps) {
                <FormField name="height" control={form.control} render={({ field }) => (
                  <FormItem>
                     <FormLabel>Height</FormLabel>
-                    <div className="flex gap-2">
-                      <FormControl><Input type="number" {...field} className="flex-grow" /></FormControl>
-                      <FormField name="heightUnit" control={form.control} render={({ field: unitField }) => (
-                         <Select onValueChange={unitField.onChange} defaultValue={unitField.value}>
-                            <FormControl><SelectTrigger className="w-24"><SelectValue /></SelectTrigger></FormControl>
-                            <SelectContent>
-                              <SelectItem value="cm">cm</SelectItem>
-                              <SelectItem value="in">in</SelectItem>
-                            </SelectContent>
-                         </Select>
-                      )} />
-                    </div>
+                     <div className="relative">
+                        <FormControl><Input type="number" {...field} className="pr-10" /></FormControl>
+                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-muted-foreground">
+                          cm
+                        </div>
+                      </div>
                     <FormMessage />
                   </FormItem>
               )} />
