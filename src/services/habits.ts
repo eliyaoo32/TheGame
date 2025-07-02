@@ -177,6 +177,7 @@ export const getHabits = async (userId: string, date: Date): Promise<Habit[]> =>
         }
         
         let completed = false;
+        // A habit can only be completed if it has a goal.
         if (habit.goal) {
             const goalValue = (habit.type === 'boolean' || habit.type === 'time' || habit.type === 'options') 
               ? 1 
@@ -185,9 +186,6 @@ export const getHabits = async (userId: string, date: Date): Promise<Habit[]> =>
             if (goalValue > 0) {
               completed = progress >= goalValue;
             }
-        } else {
-            // For habits without a goal, any progress marks them as complete for the day/week.
-            completed = progress > 0;
         }
         
         return {
@@ -250,25 +248,37 @@ export const addHabit = async (userId: string, habitData: HabitInputData) => {
                     throw new Error('Invalid goal for duration habit. Use format like "2h", "90m", or "1h 30m".');
                 }
                 dataToSave.goal = String(minutes); // Normalize to minutes
+            } else {
+                 throw new Error('Goal is required for duration habits.');
             }
             break;
         }
         case 'time':
-            if (dataToSave.goal?.trim() && !/^\d{2}:\d{2}$/.test(dataToSave.goal)) {
-                throw new Error('Invalid goal for time habit. Please use HH:MM format.');
+            if (dataToSave.goal?.trim()) {
+                if (!/^\d{2}:\d{2}$/.test(dataToSave.goal)) {
+                    throw new Error('Invalid goal for time habit. Please use HH:MM format.');
+                }
+            } else {
+                throw new Error('Goal is required for time habits.');
             }
             break;
         case 'number':
-            if (dataToSave.goal?.trim() && !/^\d+/.test(dataToSave.goal)) {
-                throw new Error('Invalid goal for number habit. Must start with a number (e.g., "25 pages").');
+            if (dataToSave.goal?.trim()) {
+                 if (!/^\d+/.test(dataToSave.goal)) {
+                    throw new Error('Invalid goal for number habit. Must start with a number (e.g., "25 pages").');
+                }
+            } else {
+                 throw new Error('Goal is required for number habits.');
             }
             break;
         case 'options':
             if (!dataToSave.options?.trim()) {
                 throw new Error('Options are required for this habit type.');
             }
+            // Goal is optional for options type
             break;
         case 'boolean':
+             // Goal is optional for boolean type
             break;
     }
 
@@ -359,17 +369,27 @@ export const updateHabit = async (userId: string, habitId: string, habitData: Pa
                         throw new Error('Invalid goal for duration habit. Use format like "2h", "90m", or "1h 30m".');
                     }
                     dataToUpdate.goal = String(minutes); // Normalize to minutes
+                } else {
+                     throw new Error('Goal is required for duration habits.');
                 }
                 break;
             }
             case 'time':
-                 if (newGoal?.trim() && !/^\d{2}:\d{2}$/.test(newGoal)) {
-                    throw new Error('Invalid goal for time habit. Please use HH:MM format.');
+                 if (newGoal?.trim()) {
+                    if (!/^\d{2}:\d{2}$/.test(newGoal)) {
+                       throw new Error('Invalid goal for time habit. Please use HH:MM format.');
+                   }
+                } else {
+                    throw new Error('Goal is required for time habits.');
                 }
                 break;
             case 'number':
-                if (newGoal?.trim() && !/^\d+/.test(newGoal)) {
-                    throw new Error('Invalid goal for number habit. Must start with a number (e.g., "25 pages").');
+                if (newGoal?.trim()) {
+                    if (!/^\d+/.test(newGoal)) {
+                       throw new Error('Invalid goal for number habit. Must start with a number (e.g., "25 pages").');
+                   }
+                } else {
+                    throw new Error('Goal is required for number habits.');
                 }
                 break;
             case 'options':
@@ -377,6 +397,7 @@ export const updateHabit = async (userId: string, habitId: string, habitData: Pa
                 if (!newOptions?.trim()) {
                     throw new Error('Options are required for this habit type.');
                 }
+                 // Goal is optional for options type
                 break;
             case 'boolean':
                 // Goal is optional

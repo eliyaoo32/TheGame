@@ -76,11 +76,14 @@ export default function DashboardPage() {
         newProgress = updatedReports.length;
       }
 
-      const goalValue = (habit.type === 'boolean' || habit.type === 'time' || habit.type === 'options')
-          ? 1
-          : parseInt(habit.goal.match(/\d+/)?.[0] || '1', 10);
-      
-      const newCompleted = newProgress >= goalValue;
+      let newCompleted = false;
+      if (habit.goal) {
+        const goalValue = (habit.type === 'boolean' || habit.type === 'time' || habit.type === 'options')
+            ? 1
+            : parseInt(habit.goal.match(/\d+/)?.[0] || '1', 10);
+        
+        newCompleted = newProgress >= goalValue;
+      }
 
       const optimisticallyUpdatedHabit: Habit = {
         ...habit,
