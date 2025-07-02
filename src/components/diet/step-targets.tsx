@@ -50,15 +50,39 @@ export function StepTargets({ profile, objective, onNext, onBack }: StepTargetsP
       fat: 0,
     },
   });
+  
+  // Set initial values based on profile and objective
+  useEffect(() => {
+    const initialProtein = Math.round(profile.weight * 1.7);
+    const initialFat = Math.round(profile.weight);
+    const initialCarbs = Math.round((suggestedGoalCalories - (initialProtein * 4) - (initialFat * 9)) / 4);
+    const initialCalories = Math.round((initialProtein * 4) + (initialCarbs * 4) + (initialFat * 9));
+
+    form.reset({
+      calories: initialCalories,
+      protein: initialProtein,
+      carbs: initialCarbs,
+      fat: initialFat,
+    });
+  }, [suggestedGoalCalories, profile.weight, form]);
+
+  // Watch for changes in macro fields and update calories
+  const protein = form.watch('protein');
+  const carbs = form.watch('carbs');
+  const fat = form.watch('fat');
 
   useEffect(() => {
-    form.reset({
-      calories: suggestedGoalCalories,
-      protein: Math.round((suggestedGoalCalories * 0.3) / 4),
-      carbs: Math.round((suggestedGoalCalories * 0.4) / 4),
-      fat: Math.round((suggestedGoalCalories * 0.3) / 9),
-    });
-  }, [suggestedGoalCalories, form]);
+      const p = Number(protein) || 0;
+      const c = Number(carbs) || 0;
+      const f = Number(fat) || 0;
+      
+      const totalCalories = Math.round((p * 4) + (c * 4) + (f * 9));
+      
+      if (totalCalories !== (Number(form.getValues('calories')) || 0)) {
+          form.setValue('calories', totalCalories, { shouldValidate: true });
+      }
+
+  }, [protein, carbs, fat, form]);
 
   const onSubmit = (values: TargetsFormValues) => {
     onNext({ targets: values });
@@ -106,14 +130,7 @@ export function StepTargets({ profile, objective, onNext, onBack }: StepTargetsP
         </div>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <FormField name="calories" control={form.control} render={({ field }) => (
-              <FormItem>
-                <FormLabel>Daily Calories Goal (kcal)</FormLabel>
-                <FormControl><Input type="number" {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <FormField name="protein" control={form.control} render={({ field }) => (
                 <FormItem>
                   <FormLabel>Protein (g)</FormLabel>
@@ -136,6 +153,13 @@ export function StepTargets({ profile, objective, onNext, onBack }: StepTargetsP
                 </FormItem>
               )} />
             </div>
+            <FormField name="calories" control={form.control} render={({ field }) => (
+              <FormItem>
+                <FormLabel>Daily Calories Goal (kcal)</FormLabel>
+                <FormControl><Input type="number" {...field} disabled /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
             <div className="flex justify-between pt-4">
               <Button type="button" variant="ghost" onClick={onBack}>Back</Button>
               <Button type="submit">Next: Structure Meals</Button>
