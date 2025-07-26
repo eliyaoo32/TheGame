@@ -88,7 +88,7 @@ export const getHabitDefinitions = async (userId: string): Promise<Habit[]> => {
     const categoriesCollectionRef = collection(db, 'users', userId, 'categories');
     
     const [habitsSnapshot, categoriesSnapshot] = await Promise.all([
-      getDocs(query(habitsCollectionRef, orderBy('order', 'asc'))),
+      getDocs(query(habitsCollectionRef)),
       getDocs(query(categoriesCollectionRef)),
     ]);
 
@@ -109,7 +109,7 @@ export const getHabitDefinitions = async (userId: string): Promise<Habit[]> => {
       } as Habit;
     });
 
-    return habitsData;
+    return habitsData.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   } catch (error) {
     console.error("Error fetching habit definitions: ", error);
     if (error instanceof Error && error.message.includes('permission-denied')) {
@@ -126,7 +126,7 @@ export const getHabits = async (userId: string, date: Date): Promise<Habit[]> =>
     const habitsCollectionRef = collection(db, 'users', userId, 'habits');
     const categoriesCollectionRef = collection(db, 'users', userId, 'categories');
     const [habitsSnapshot, categoriesSnapshot] = await Promise.all([
-        getDocs(query(habitsCollectionRef, orderBy('order', 'asc'))),
+        getDocs(query(habitsCollectionRef)),
         getDocs(query(categoriesCollectionRef))
     ]);
     
@@ -190,6 +190,8 @@ export const getHabits = async (userId: string, date: Date): Promise<Habit[]> =>
             if (goalValue > 0) {
               completed = progress >= goalValue;
             }
+        } else {
+          completed = false;
         }
         
         return {
@@ -202,7 +204,7 @@ export const getHabits = async (userId: string, date: Date): Promise<Habit[]> =>
         } as Habit;
       })
     );
-    return habitsWithReports;
+    return habitsWithReports.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
   } catch (error) {
     console.error("Error fetching habits: ", error);
@@ -227,6 +229,7 @@ export const getHabitById = async (userId: string, habitId: string): Promise<Omi
 
         return {
             id: habitDoc.id,
+            order: data.order ?? 0,
             ...serializableData
         } as Omit<Habit, 'reports' | 'progress' | 'completed' | 'lastReportedValue' | 'categoryName'>;
     } catch (error) {
@@ -460,7 +463,7 @@ export const getHabitsWithReportsForMonth = async (userId: string, date: Date): 
         const habitsCollectionRef = collection(db, 'users', userId, 'habits');
         const categoriesCollectionRef = collection(db, 'users', userId, 'categories');
         const [habitsSnapshot, categoriesSnapshot] = await Promise.all([
-            getDocs(query(habitsCollectionRef, orderBy('order', 'asc'))),
+            getDocs(query(habitsCollectionRef)),
             getDocs(query(categoriesCollectionRef))
         ]);
         
@@ -469,7 +472,7 @@ export const getHabitsWithReportsForMonth = async (userId: string, date: Date): 
             categoriesMap.set(doc.id, doc.data().name);
         });
 
-        const habitsData = habitsSnapshot.docs.map(mapDocToHabit);
+        const habitsData = habitsSnapshot.docs.map(mapDocToHabit).sort((a,b) => (a.order ?? 0) - (b.order ?? 0));
 
         const monthStart = startOfMonth(date);
         const monthEnd = endOfMonth(date);
@@ -519,7 +522,7 @@ export const getHabitsWithReportsForWeek = async (userId: string, date: Date): P
         const habitsCollectionRef = collection(db, 'users', userId, 'habits');
         const categoriesCollectionRef = collection(db, 'users', userId, 'categories');
         const [habitsSnapshot, categoriesSnapshot] = await Promise.all([
-            getDocs(query(habitsCollectionRef, orderBy('order', 'asc'))),
+            getDocs(query(habitsCollectionRef)),
             getDocs(query(categoriesCollectionRef))
         ]);
         
@@ -527,7 +530,7 @@ export const getHabitsWithReportsForWeek = async (userId: string, date: Date): P
         categoriesSnapshot.docs.forEach(doc => {
             categoriesMap.set(doc.id, doc.data().name);
         });
-        const habitsData = habitsSnapshot.docs.map(mapDocToHabit);
+        const habitsData = habitsSnapshot.docs.map(mapDocToHabit).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
         const weekStart = startOfWeek(date, { weekStartsOn: 0 });
         const weekEndValue = endOfWeek(date, { weekStartsOn: 0 });

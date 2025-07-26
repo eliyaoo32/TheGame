@@ -83,6 +83,8 @@ export default function DashboardPage() {
             : parseInt(habit.goal.match(/\d+/)?.[0] || '1', 10);
         
         newCompleted = newProgress >= goalValue;
+      } else {
+        newCompleted = false;
       }
 
       const optimisticallyUpdatedHabit: Habit = {
