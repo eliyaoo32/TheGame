@@ -74,7 +74,7 @@ const mapDocToHabit = (doc: QueryDocumentSnapshot<DocumentData, DocumentData>): 
     const { createdAt, ...serializableData } = data;
     return {
       id: doc.id,
-      order: 0, // Default order
+      order: data.order ?? 0, // Assign default order if it's missing
       ...serializableData
     } as Omit<Habit, 'reports' | 'progress' | 'completed' | 'lastReportedValue' | 'categoryName'>;
 };

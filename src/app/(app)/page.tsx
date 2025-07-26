@@ -152,7 +152,7 @@ export default function DashboardPage() {
         if (catA < catB) return -1;
         if (catA > catB) return 1;
         // Within the same category, maintain the master order
-        return a.order - b.order;
+        return (a.order ?? 0) - (b.order ?? 0);
     });
 
     return sortedHabits.reduce((groups, habit) => {
