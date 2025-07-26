@@ -39,12 +39,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { AddHabitDialog } from '@/components/dashboard/add-habit-dialog';
 import { AddCategoryDialog } from '@/components/dashboard/add-category-dialog';
 import { UpdateCategoryDialog } from '@/components/dashboard/update-category-dialog';
-import { MoreHorizontal, PlusCircle, ArrowUp, ArrowDown } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, GripVertical } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/auth-provider';
 import { getHabitDefinitions, addHabit, updateHabit, deleteHabit, getCategories, addCategory, updateCategory, deleteCategory, updateHabitsCategory, updateHabitOrder } from '@/services/habits';
 import { Skeleton } from '@/components/ui/skeleton';
 import { HabitIcon } from '@/components/habit-icon';
+import { cn } from '@/lib/utils';
+
 
 type HabitFormData = {
     id?: string;
@@ -64,6 +66,10 @@ export default function ManageHabitsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedHabits, setSelectedHabits] = useState<string[]>([]);
+  
+  // Drag and Drop state
+  const [draggedHabitId, setDraggedHabitId] = useState<string | null>(null);
+  const [dragOverHabitId, setDragOverHabitId] = useState<string | null>(null);
 
   // Habit Dialog State
   const [habitToEdit, setHabitToEdit] = useState<Habit | undefined>(undefined);
@@ -112,6 +118,64 @@ export default function ManageHabitsPage() {
   const categoryMap = useMemo(() => {
     return new Map(categories.map(c => [c.id, c.name]));
   }, [categories]);
+
+  // ========== DRAG & DROP HANDLERS ==========
+  
+  const handleDragStart = (e: React.DragEvent<HTMLTableRowElement>, habitId: string) => {
+    setDraggedHabitId(habitId);
+    // This makes the drag image less opaque.
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLTableRowElement>, habitId: string) => {
+    e.preventDefault();
+    if (habitId !== dragOverHabitId) {
+        setDragOverHabitId(habitId);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLTableRowElement>, dropHabitId: string) => {
+    e.preventDefault();
+    if (!draggedHabitId || draggedHabitId === dropHabitId) {
+      setDraggedHabitId(null);
+      setDragOverHabitId(null);
+      return;
+    }
+
+    const originalHabits = [...habits];
+    const draggedIndex = originalHabits.findIndex(h => h.id === draggedHabitId);
+    const dropIndex = originalHabits.findIndex(h => h.id === dropHabitId);
+
+    const newHabits = [...originalHabits];
+    const [draggedItem] = newHabits.splice(draggedIndex, 1);
+    newHabits.splice(dropIndex, 0, draggedItem);
+
+    // Optimistically update the UI
+    setHabits(newHabits);
+
+    setDraggedHabitId(null);
+    setDragOverHabitId(null);
+    
+    if (user) {
+      try {
+        const orderedHabitIds = newHabits.map(h => h.id);
+        await updateHabitOrder(user.uid, orderedHabitIds);
+        toast({ title: 'Habit order updated!' });
+      } catch (error) {
+        console.error("Failed to update habit order:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not update habit order.' });
+        // Revert UI on failure
+        setHabits(originalHabits);
+      }
+    }
+  };
+  
+  const handleDragEnd = () => {
+    setDraggedHabitId(null);
+    setDragOverHabitId(null);
+  }
 
   // ========== HABIT HANDLERS ==========
 
@@ -180,38 +244,6 @@ export default function ManageHabitsPage() {
     }
   };
 
-  const handleMoveHabit = async (habitId: string, direction: 'up' | 'down') => {
-    if (!user) return;
-  
-    const currentIndex = habits.findIndex(h => h.id === habitId);
-    if (currentIndex === -1) return;
-  
-    const newHabits = [...habits];
-    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-  
-    if (targetIndex < 0 || targetIndex >= newHabits.length) {
-      return; // Can't move outside bounds
-    }
-  
-    // Swap items
-    const [movedItem] = newHabits.splice(currentIndex, 1);
-    newHabits.splice(targetIndex, 0, movedItem);
-  
-    // Optimistically update UI
-    setHabits(newHabits);
-  
-    try {
-      const orderedHabitIds = newHabits.map(h => h.id);
-      await updateHabitOrder(user.uid, orderedHabitIds);
-      toast({ title: 'Habit order updated!' });
-    } catch (error) {
-      console.error("Failed to update habit order:", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not update habit order.' });
-      // Revert UI on failure
-      setHabits(habits);
-    }
-  };
-
 
   // ========== CATEGORY HANDLERS ==========
   
@@ -264,7 +296,7 @@ export default function ManageHabitsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Your Habits</CardTitle>
-              <CardDescription>Create, view, edit, and delete your habits.</CardDescription>
+              <CardDescription>Drag and drop to reorder. Create, view, edit, and delete your habits.</CardDescription>
               <div className="flex items-center gap-2">
                 <Button size="sm" className="h-8 gap-1" onClick={() => setAddHabitDialogOpen(true)}>
                   <PlusCircle className="h-3.5 w-3.5" />
@@ -294,7 +326,7 @@ export default function ManageHabitsPage() {
                         aria-label="Select all"
                       />
                     </TableHead>
-                    <TableHead className="w-[80px]">Order</TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead className="hidden md:table-cell">Frequency</TableHead>
@@ -308,7 +340,7 @@ export default function ManageHabitsPage() {
                     Array.from({ length: 4 }).map((_, i) => (
                       <TableRow key={i}>
                         <TableCell><Skeleton className="h-4 w-4" /></TableCell>
-                        <TableCell><Skeleton className="h-8 w-12" /></TableCell>
+                        <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Skeleton className="h-4 w-4" />
@@ -321,8 +353,21 @@ export default function ManageHabitsPage() {
                       </TableRow>
                     ))
                   ) : habits.length > 0 ? (
-                    habits.map((habit, index) => (
-                      <TableRow key={habit.id} data-state={selectedHabits.includes(habit.id) && 'selected'}>
+                    habits.map((habit) => (
+                      <TableRow 
+                        key={habit.id} 
+                        data-state={selectedHabits.includes(habit.id) && 'selected'}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, habit.id)}
+                        onDragOver={(e) => handleDragOver(e, habit.id)}
+                        onDrop={(e) => handleDrop(e, habit.id)}
+                        onDragEnd={handleDragEnd}
+                        className={cn(
+                          'cursor-move transition-all',
+                          draggedHabitId === habit.id && 'opacity-50',
+                          dragOverHabitId === habit.id && 'border-t-2 border-t-primary'
+                        )}
+                      >
                         <TableCell>
                            <Checkbox
                             checked={selectedHabits.includes(habit.id)}
@@ -336,27 +381,8 @@ export default function ManageHabitsPage() {
                             aria-label={`Select habit ${habit.name}`}
                           />
                         </TableCell>
-                         <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6"
-                              onClick={() => handleMoveHabit(habit.id, 'up')}
-                              disabled={index === 0}
-                            >
-                              <ArrowUp className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6"
-                              onClick={() => handleMoveHabit(habit.id, 'down')}
-                              disabled={index === habits.length - 1}
-                            >
-                              <ArrowDown className="h-4 w-4" />
-                            </Button>
-                          </div>
+                         <TableCell className="text-muted-foreground">
+                            <GripVertical className="h-5 w-5" />
                         </TableCell>
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
@@ -475,3 +501,5 @@ export default function ManageHabitsPage() {
     </>
   );
 }
+
+    
