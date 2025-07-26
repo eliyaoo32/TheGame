@@ -248,7 +248,7 @@ export default function ReportsPage() {
         finalTableData.push({ isHeader: true, categoryName: categoryName });
 
         const habitsInCategory = groupedData[categoryName].sort((a, b) =>
-            a.habit.name.localeCompare(b.habit.name)
+            (a.habit.order ?? 0) - (b.habit.order ?? 0)
         );
 
         habitsInCategory.forEach(item => {
