@@ -15,16 +15,15 @@ export function useHiddenHabits(selectedDate?: Date) {
   const [hiddenHabitIds, setHiddenHabitIds] = useState<string[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Load from localStorage on mount and when date changes
+  // Effect to initialize and load from localStorage when date changes
   useEffect(() => {
-    // Prevent running on the server or without a selected date
     if (typeof window === 'undefined' || !selectedDate) {
       return;
     }
-    
-    // Mark as initialized once we have a date on the client
+
+    // Mark as initialized on the first run with a valid date on the client
     if (!isInitialized) {
-        setIsInitialized(true);
+      setIsInitialized(true);
     }
 
     try {
@@ -33,55 +32,56 @@ export function useHiddenHabits(selectedDate?: Date) {
 
       if (item) {
         const storedData: StoredHiddenHabits = JSON.parse(item);
-        
-        // If the date in storage matches the selected date, load the hidden habits
+        // If the date in storage matches the selected date, load the hidden habits.
+        // Otherwise, reset the hidden list for the new day.
         if (storedData.date === selectedDateKey) {
           setHiddenHabitIds(storedData.hiddenHabitIds);
         } else {
-          // If the date is different, the user is viewing a new day, so clear the local state.
-          // The localStorage for the *new* day will be set by the other useEffect when a habit is hidden.
           setHiddenHabitIds([]);
         }
       } else {
-         // No data in storage, ensure local state is clear
-         setHiddenHabitIds([]);
+        // If there's no item in localStorage, ensure the state is empty.
+        setHiddenHabitIds([]);
       }
     } catch (error) {
       console.error('Failed to parse hidden habits from localStorage', error);
-      // Clear state on error
-      setHiddenHabitIds([]);
+      setHiddenHabitIds([]); // Reset on error
     }
-  }, [selectedDate, isInitialized]); // Rerun when the selectedDate changes
+  }, [selectedDate]); // This effect runs only when the selectedDate changes.
 
-  // Save to localStorage whenever hiddenHabitIds changes
+  // Effect to save to localStorage whenever hiddenHabitIds or selectedDate changes
   useEffect(() => {
-    // Don't save until initialized and running on the client
+    // We don't save to localStorage until the hook is initialized from the client.
+    // This prevents writing empty data to localStorage on the initial server render.
     if (typeof window === 'undefined' || !selectedDate || !isInitialized) {
-        return;
+      return;
     }
     
     try {
-      const dataToStore: StoredHiddenHabits = {
-        date: format(selectedDate, 'yyyy-MM-dd'),
-        hiddenHabitIds,
-      };
-      // Only write to localStorage if there are hidden habits for the current date.
-      // Or if there were habits and now there are none (to clear it).
-      // This prevents creating empty entries for every day the user visits.
-      const existingData = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+      const selectedDateKey = format(selectedDate, 'yyyy-MM-dd');
+      
+      // If there are habits to hide for the current date, store them.
       if (hiddenHabitIds.length > 0) {
+        const dataToStore: StoredHiddenHabits = {
+          date: selectedDateKey,
+          hiddenHabitIds,
+        };
         window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dataToStore));
-      } else if (existingData) {
-        const storedData = JSON.parse(existingData);
-        if (storedData.date === format(selectedDate, 'yyyy-MM-dd')) {
+      } else {
+        // If there are no hidden habits, we should clear localStorage *only if* it's currently storing data for the selected date.
+        // This prevents unnecessarily clearing localStorage when viewing a new day that has no hidden habits yet.
+        const item = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (item) {
+          const storedData: StoredHiddenHabits = JSON.parse(item);
+          if (storedData.date === selectedDateKey) {
             window.localStorage.removeItem(LOCAL_STORAGE_KEY);
+          }
         }
       }
-      
     } catch (error) {
       console.error('Failed to save hidden habits to localStorage', error);
     }
-  }, [hiddenHabitIds, selectedDate, isInitialized]);
+  }, [hiddenHabitIds, selectedDate, isInitialized]); // This effect runs whenever the data to be saved changes.
 
   const hideHabit = useCallback((habitId: string) => {
     setHiddenHabitIds((prev) => {
