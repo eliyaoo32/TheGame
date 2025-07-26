@@ -621,48 +621,6 @@ export const updateHabitsCategory = async (userId: string, habitIds: string[], c
     await batch.commit();
 };
 
-export const getHabitsWithLastWeekReports = async (userId: string): Promise<{habits: Omit<Habit, 'reports' | 'progress' | 'completed' | 'lastReportedValue' | 'categoryName'>[], reports: {habitName: string, value: any, reportedAt: string}[]}> => {
-    if (!userId) return { habits: [], reports: [] };
-    try {
-        const habitsCollectionRef = collection(db, 'users', userId, 'habits');
-        const habitsSnapshot = await getDocs(query(habitsCollectionRef));
-        const habitsData = habitsSnapshot.docs.map(mapDocToHabit);
-
-        const now = new Date();
-        const weekStart = startOfWeek(now, { weekStartsOn: 0 }); // Sunday
-
-        const allReports: {habitName: string, value: any, reportedAt: string}[] = [];
-
-        for (const habit of habitsData) {
-            const reportsCollectionRef = collection(db, 'users', userId, 'habits', habit.id, 'reports');
-            const reportsQuery = query(
-                reportsCollectionRef,
-                where('reportedAt', '>=', weekStart),
-                where('reportedAt', '<=', now)
-            );
-            const reportsSnapshot = await getDocs(reportsQuery);
-
-            reportsSnapshot.docs.forEach(doc => {
-                const data = doc.data();
-                if (data.reportedAt && typeof data.reportedAt.toDate === 'function') {
-                    allReports.push({
-                        habitName: habit.name,
-                        value: data.value,
-                        reportedAt: format((data.reportedAt as Timestamp).toDate(), 'yyyy-MM-dd'),
-                    });
-                }
-            });
-        }
-        
-        allReports.sort((a, b) => new Date(a.reportedAt).getTime() - new Date(b.reportedAt).getTime());
-
-        return { habits: habitsData, reports: allReports };
-    } catch (error) {
-        console.error("Error fetching habits with last week reports: ", error);
-        return { habits: [], reports: [] };
-    }
-};
-
 export const updateHabitOrder = async (userId: string, habitIds: string[]) => {
     if (!userId) throw new Error("User not authenticated");
 
