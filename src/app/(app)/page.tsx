@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback, useTransition, useMemo } from 'react';
 import { format, isToday } from 'date-fns';
-import { Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar as CalendarIcon, EyeOff } from 'lucide-react';
 import type { Habit, HabitReport } from '@/lib/types';
 import { getHabits, addHabitReport, deleteHabitReportsForPeriod } from '@/services/habits';
 import { useToast } from '@/hooks/use-toast';
@@ -24,6 +24,7 @@ export default function DashboardPage() {
   const [reportingHabit, setReportingHabit] = useState<Habit | null>(null);
   const [updatingHabitId, setUpdatingHabitId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  const [hiddenHabitIds, setHiddenHabitIds] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
@@ -52,8 +53,14 @@ export default function DashboardPage() {
   useEffect(() => {
     if (selectedDate) {
       fetchHabits(selectedDate);
+      // Reset hidden habits when the date changes
+      setHiddenHabitIds([]);
     }
   }, [fetchHabits, selectedDate]);
+  
+  const visibleHabits = useMemo(() => {
+    return habits.filter(habit => !hiddenHabitIds.includes(habit.id));
+  }, [habits, hiddenHabitIds]);
 
   const handleSaveProgress = (habit: Habit, value: any) => {
     if (!user || !selectedDate) return;
@@ -142,6 +149,14 @@ export default function DashboardPage() {
       }
     });
   };
+  
+  const handleHideHabit = (habitId: string) => {
+    setHiddenHabitIds(prev => [...prev, habitId]);
+  };
+  
+  const handleShowAllHabits = () => {
+    setHiddenHabitIds([]);
+  }
 
   return (
     <>
@@ -185,6 +200,15 @@ export default function DashboardPage() {
             </PopoverContent>
           </Popover>
         </div>
+        
+         {hiddenHabitIds.length > 0 && (
+          <div className="flex items-center justify-center p-4 rounded-lg bg-muted/50 border border-dashed">
+            <Button variant="secondary" onClick={handleShowAllHabits}>
+              <EyeOff className="mr-2 h-4 w-4" />
+              Show {hiddenHabitIds.length} hidden habit{hiddenHabitIds.length > 1 ? 's' : ''}
+            </Button>
+          </div>
+        )}
 
         {loading ? (
            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -197,14 +221,22 @@ export default function DashboardPage() {
               Go to "Manage Habits" to get started on your journey.
             </p>
           </div>
+        ) : visibleHabits.length === 0 && hiddenHabitIds.length > 0 ? (
+           <div className="text-center py-10 border-2 border-dashed rounded-lg bg-muted/20">
+            <h3 className="text-lg font-semibold">All habits for this day are hidden.</h3>
+            <p className="text-muted-foreground mt-2">
+              Click the button above to show them again.
+            </p>
+          </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {habits.map((habit) => (
+            {visibleHabits.map((habit) => (
                 <HabitCard 
                     key={habit.id} 
                     habit={habit} 
                     onReport={() => setReportingHabit(habit)}
                     onRestart={handleRestartHabit}
+                    onHide={() => handleHideHabit(habit.id)}
                     isUpdating={isPending && updatingHabitId === habit.id}
                 />
             ))}

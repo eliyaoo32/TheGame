@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw, EyeOff } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { cn, formatDuration } from '@/lib/utils';
 import { HabitIcon } from '@/components/habit-icon';
@@ -21,10 +21,11 @@ interface HabitCardProps {
   habit: Habit;
   onReport: (habit: Habit) => void;
   onRestart: (habit: Habit) => void;
+  onHide: (habitId: string) => void;
   isUpdating?: boolean;
 }
 
-export function HabitCard({ habit, onReport, onRestart, isUpdating }: HabitCardProps) {
+export function HabitCard({ habit, onReport, onRestart, onHide, isUpdating }: HabitCardProps) {
 
   const handleReport = () => {
     if (!isUpdating) {
@@ -37,6 +38,12 @@ export function HabitCard({ habit, onReport, onRestart, isUpdating }: HabitCardP
         onRestart(habit);
     }
   };
+  
+  const handleHide = () => {
+    if (!isUpdating) {
+        onHide(habit.id);
+    }
+  }
 
   const getStatusText = () => {
     const goal = habit.goal;
@@ -125,17 +132,29 @@ export function HabitCard({ habit, onReport, onRestart, isUpdating }: HabitCardP
         >
           {isUpdating ? 'Saving...' : 'Report Progress'}
         </Button>
-        {habit.progress > 0 && (
+        <div className="flex">
+            {habit.progress > 0 && (
+                <Button
+                    onClick={handleRestart}
+                    disabled={isUpdating}
+                    variant="outline"
+                    size="icon"
+                    aria-label="Restart habit progress"
+                    className="mr-2"
+                >
+                    <RotateCcw className="h-4 w-4" />
+                </Button>
+            )}
             <Button
-                onClick={handleRestart}
+                onClick={handleHide}
                 disabled={isUpdating}
                 variant="outline"
                 size="icon"
-                aria-label="Restart habit progress"
+                aria-label="Hide habit for today"
             >
-                <RotateCcw className="h-4 w-4" />
+                <EyeOff className="h-4 w-4" />
             </Button>
-        )}
+        </div>
       </CardFooter>
     </Card>
   );
