@@ -8,6 +8,7 @@ import type { Habit, HabitReport } from '@/lib/types';
 import { getHabits, addHabitReport, deleteHabitReportsForPeriod } from '@/services/habits';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/auth-provider';
+import { useHiddenHabits } from '@/hooks/use-hidden-habits';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ReportProgressDialog } from '@/components/dashboard/report-progress-dialog';
@@ -24,7 +25,8 @@ export default function DashboardPage() {
   const [reportingHabit, setReportingHabit] = useState<Habit | null>(null);
   const [updatingHabitId, setUpdatingHabitId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
-  const [hiddenHabitIds, setHiddenHabitIds] = useState<string[]>([]);
+  const { hiddenHabitIds, hideHabit, showAllHabits } = useHiddenHabits(selectedDate);
+
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
@@ -53,8 +55,6 @@ export default function DashboardPage() {
   useEffect(() => {
     if (selectedDate) {
       fetchHabits(selectedDate);
-      // Reset hidden habits when the date changes
-      setHiddenHabitIds([]);
     }
   }, [fetchHabits, selectedDate]);
   
@@ -150,14 +150,6 @@ export default function DashboardPage() {
     });
   };
   
-  const handleHideHabit = (habitId: string) => {
-    setHiddenHabitIds(prev => [...prev, habitId]);
-  };
-  
-  const handleShowAllHabits = () => {
-    setHiddenHabitIds([]);
-  }
-
   return (
     <>
       <div className="flex flex-col gap-6">
@@ -201,15 +193,6 @@ export default function DashboardPage() {
           </Popover>
         </div>
         
-         {hiddenHabitIds.length > 0 && (
-          <div className="flex items-center justify-center p-4 rounded-lg bg-muted/50 border border-dashed">
-            <Button variant="secondary" onClick={handleShowAllHabits}>
-              <EyeOff className="mr-2 h-4 w-4" />
-              Show {hiddenHabitIds.length} hidden habit{hiddenHabitIds.length > 1 ? 's' : ''}
-            </Button>
-          </div>
-        )}
-
         {loading ? (
            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-56 w-full rounded-lg" />)}
@@ -225,7 +208,7 @@ export default function DashboardPage() {
            <div className="text-center py-10 border-2 border-dashed rounded-lg bg-muted/20">
             <h3 className="text-lg font-semibold">All habits for this day are hidden.</h3>
             <p className="text-muted-foreground mt-2">
-              Click the button above to show them again.
+              Click the button below to show them again.
             </p>
           </div>
         ) : (
@@ -236,10 +219,19 @@ export default function DashboardPage() {
                     habit={habit} 
                     onReport={() => setReportingHabit(habit)}
                     onRestart={handleRestartHabit}
-                    onHide={() => handleHideHabit(habit.id)}
+                    onHide={() => hideHabit(habit.id)}
                     isUpdating={isPending && updatingHabitId === habit.id}
                 />
             ))}
+          </div>
+        )}
+        
+         {hiddenHabitIds.length > 0 && (
+          <div className="flex items-center justify-center p-4 rounded-lg">
+            <Button variant="secondary" onClick={showAllHabits}>
+              <EyeOff className="mr-2 h-4 w-4" />
+              Show {hiddenHabitIds.length} hidden habit{hiddenHabitIds.length > 1 ? 's' : ''}
+            </Button>
           </div>
         )}
       </div>
