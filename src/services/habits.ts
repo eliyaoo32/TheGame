@@ -1,3 +1,4 @@
+
 import {
   collection,
   addDoc,
@@ -12,6 +13,8 @@ import {
   where,
   type DocumentData,
   type QueryDocumentSnapshot,
+  orderBy,
+  runTransaction,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Habit, HabitFrequency, HabitReport, Category, HabitType } from '@/lib/types';
@@ -71,6 +74,7 @@ const mapDocToHabit = (doc: QueryDocumentSnapshot<DocumentData, DocumentData>): 
     const { createdAt, ...serializableData } = data;
     return {
       id: doc.id,
+      order: 0, // Default order
       ...serializableData
     } as Omit<Habit, 'reports' | 'progress' | 'completed' | 'lastReportedValue' | 'categoryName'>;
 };
@@ -84,7 +88,7 @@ export const getHabitDefinitions = async (userId: string): Promise<Habit[]> => {
     const categoriesCollectionRef = collection(db, 'users', userId, 'categories');
     
     const [habitsSnapshot, categoriesSnapshot] = await Promise.all([
-      getDocs(query(habitsCollectionRef)),
+      getDocs(query(habitsCollectionRef, orderBy('order', 'asc'))),
       getDocs(query(categoriesCollectionRef)),
     ]);
 
@@ -122,7 +126,7 @@ export const getHabits = async (userId: string, date: Date): Promise<Habit[]> =>
     const habitsCollectionRef = collection(db, 'users', userId, 'habits');
     const categoriesCollectionRef = collection(db, 'users', userId, 'categories');
     const [habitsSnapshot, categoriesSnapshot] = await Promise.all([
-        getDocs(query(habitsCollectionRef)),
+        getDocs(query(habitsCollectionRef, orderBy('order', 'asc'))),
         getDocs(query(categoriesCollectionRef))
     ]);
     
@@ -248,8 +252,6 @@ export const addHabit = async (userId: string, habitData: HabitInputData) => {
                     throw new Error('Invalid goal for duration habit. Use format like "2h", "90m", or "1h 30m".');
                 }
                 dataToSave.goal = String(minutes); // Normalize to minutes
-            } else {
-                 throw new Error('Goal is required for duration habits.');
             }
             break;
         }
@@ -258,8 +260,6 @@ export const addHabit = async (userId: string, habitData: HabitInputData) => {
                 if (!/^\d{2}:\d{2}$/.test(dataToSave.goal)) {
                     throw new Error('Invalid goal for time habit. Please use HH:MM format.');
                 }
-            } else {
-                throw new Error('Goal is required for time habits.');
             }
             break;
         case 'number':
@@ -267,28 +267,34 @@ export const addHabit = async (userId: string, habitData: HabitInputData) => {
                  if (!/^\d+/.test(dataToSave.goal)) {
                     throw new Error('Invalid goal for number habit. Must start with a number (e.g., "25 pages").');
                 }
-            } else {
-                 throw new Error('Goal is required for number habits.');
             }
             break;
         case 'options':
             if (!dataToSave.options?.trim()) {
                 throw new Error('Options are required for this habit type.');
             }
-            // Goal is optional for options type
             break;
         case 'boolean':
-             // Goal is optional for boolean type
             break;
     }
-
+    
     const habitsCollectionRef = collection(db, 'users', userId, 'habits');
-    const newHabit = {
-        ...dataToSave,
-        createdAt: Timestamp.now(),
-    };
-    const docRef = await addDoc(habitsCollectionRef, newHabit);
-    return docRef.id;
+
+    // To set the initial order, we need to know how many habits already exist.
+    // This is best done in a transaction to avoid race conditions.
+    return await runTransaction(db, async (transaction) => {
+        const snapshot = await transaction.get(query(habitsCollectionRef));
+        const currentCount = snapshot.size;
+
+        const newHabit = {
+            ...dataToSave,
+            order: currentCount,
+            createdAt: Timestamp.now(),
+        };
+        const docRef = doc(collection(db, 'users', userId, 'habits'));
+        transaction.set(docRef, newHabit);
+        return docRef.id;
+    });
 };
 
 export const addHabitReport = async (userId: string, habitId: string, value: any, date: Date = new Date()) => {
@@ -369,8 +375,6 @@ export const updateHabit = async (userId: string, habitId: string, habitData: Pa
                         throw new Error('Invalid goal for duration habit. Use format like "2h", "90m", or "1h 30m".');
                     }
                     dataToUpdate.goal = String(minutes); // Normalize to minutes
-                } else {
-                     throw new Error('Goal is required for duration habits.');
                 }
                 break;
             }
@@ -379,8 +383,6 @@ export const updateHabit = async (userId: string, habitId: string, habitData: Pa
                     if (!/^\d{2}:\d{2}$/.test(newGoal)) {
                        throw new Error('Invalid goal for time habit. Please use HH:MM format.');
                    }
-                } else {
-                    throw new Error('Goal is required for time habits.');
                 }
                 break;
             case 'number':
@@ -388,8 +390,6 @@ export const updateHabit = async (userId: string, habitId: string, habitData: Pa
                     if (!/^\d+/.test(newGoal)) {
                        throw new Error('Invalid goal for number habit. Must start with a number (e.g., "25 pages").');
                    }
-                } else {
-                    throw new Error('Goal is required for number habits.');
                 }
                 break;
             case 'options':
@@ -460,7 +460,7 @@ export const getHabitsWithReportsForMonth = async (userId: string, date: Date): 
         const habitsCollectionRef = collection(db, 'users', userId, 'habits');
         const categoriesCollectionRef = collection(db, 'users', userId, 'categories');
         const [habitsSnapshot, categoriesSnapshot] = await Promise.all([
-            getDocs(query(habitsCollectionRef)),
+            getDocs(query(habitsCollectionRef, orderBy('order', 'asc'))),
             getDocs(query(categoriesCollectionRef))
         ]);
         
@@ -519,7 +519,7 @@ export const getHabitsWithReportsForWeek = async (userId: string, date: Date): P
         const habitsCollectionRef = collection(db, 'users', userId, 'habits');
         const categoriesCollectionRef = collection(db, 'users', userId, 'categories');
         const [habitsSnapshot, categoriesSnapshot] = await Promise.all([
-            getDocs(query(habitsCollectionRef)),
+            getDocs(query(habitsCollectionRef, orderBy('order', 'asc'))),
             getDocs(query(categoriesCollectionRef))
         ]);
         
@@ -658,4 +658,16 @@ export const getHabitsWithLastWeekReports = async (userId: string): Promise<{hab
         console.error("Error fetching habits with last week reports: ", error);
         return { habits: [], reports: [] };
     }
+};
+
+export const updateHabitOrder = async (userId: string, habitIds: string[]) => {
+    if (!userId) throw new Error("User not authenticated");
+
+    const batch = writeBatch(db);
+    habitIds.forEach((habitId, index) => {
+        const habitRef = doc(db, 'users', userId, 'habits', habitId);
+        batch.update(habitRef, { order: index });
+    });
+
+    await batch.commit();
 };

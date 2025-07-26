@@ -145,14 +145,14 @@ export default function DashboardPage() {
   const groupedHabits = useMemo(() => {
     if (habits.length === 0) return {};
     
+    // The habits are already sorted by `order` from the service
     const sortedHabits = [...habits].sort((a, b) => {
         const catA = a.categoryName || 'zzz'; // Uncategorized last
         const catB = b.categoryName || 'zzz';
         if (catA < catB) return -1;
         if (catA > catB) return 1;
-        if (a.name < b.name) return -1;
-        if (a.name > b.name) return 1;
-        return 0;
+        // Within the same category, maintain the master order
+        return a.order - b.order;
     });
 
     return sortedHabits.reduce((groups, habit) => {

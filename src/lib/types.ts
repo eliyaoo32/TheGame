@@ -29,6 +29,7 @@ export type Habit = {
   lastReportedValue?: string;
   categoryId?: string;
   categoryName?: string;
+  order: number;
 };
 
 // Diet Planner Types

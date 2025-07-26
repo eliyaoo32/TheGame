@@ -39,10 +39,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { AddHabitDialog } from '@/components/dashboard/add-habit-dialog';
 import { AddCategoryDialog } from '@/components/dashboard/add-category-dialog';
 import { UpdateCategoryDialog } from '@/components/dashboard/update-category-dialog';
-import { MoreHorizontal, PlusCircle } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, ArrowUp, ArrowDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/auth-provider';
-import { getHabitDefinitions, addHabit, updateHabit, deleteHabit, getCategories, addCategory, updateCategory, deleteCategory, updateHabitsCategory } from '@/services/habits';
+import { getHabitDefinitions, addHabit, updateHabit, deleteHabit, getCategories, addCategory, updateCategory, deleteCategory, updateHabitsCategory, updateHabitOrder } from '@/services/habits';
 import { Skeleton } from '@/components/ui/skeleton';
 import { HabitIcon } from '@/components/habit-icon';
 
@@ -180,6 +180,39 @@ export default function ManageHabitsPage() {
     }
   };
 
+  const handleMoveHabit = async (habitId: string, direction: 'up' | 'down') => {
+    if (!user) return;
+  
+    const currentIndex = habits.findIndex(h => h.id === habitId);
+    if (currentIndex === -1) return;
+  
+    const newHabits = [...habits];
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+  
+    if (targetIndex < 0 || targetIndex >= newHabits.length) {
+      return; // Can't move outside bounds
+    }
+  
+    // Swap items
+    const [movedItem] = newHabits.splice(currentIndex, 1);
+    newHabits.splice(targetIndex, 0, movedItem);
+  
+    // Optimistically update UI
+    setHabits(newHabits);
+  
+    try {
+      const orderedHabitIds = newHabits.map(h => h.id);
+      await updateHabitOrder(user.uid, orderedHabitIds);
+      toast({ title: 'Habit order updated!' });
+    } catch (error) {
+      console.error("Failed to update habit order:", error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not update habit order.' });
+      // Revert UI on failure
+      setHabits(habits);
+    }
+  };
+
+
   // ========== CATEGORY HANDLERS ==========
   
   const handleSaveCategory = async (savedCategoryData: { id?: string, name: string }) => {
@@ -261,6 +294,7 @@ export default function ManageHabitsPage() {
                         aria-label="Select all"
                       />
                     </TableHead>
+                    <TableHead className="w-[80px]">Order</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead className="hidden md:table-cell">Frequency</TableHead>
@@ -274,6 +308,7 @@ export default function ManageHabitsPage() {
                     Array.from({ length: 4 }).map((_, i) => (
                       <TableRow key={i}>
                         <TableCell><Skeleton className="h-4 w-4" /></TableCell>
+                        <TableCell><Skeleton className="h-8 w-12" /></TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Skeleton className="h-4 w-4" />
@@ -286,7 +321,7 @@ export default function ManageHabitsPage() {
                       </TableRow>
                     ))
                   ) : habits.length > 0 ? (
-                    habits.map(habit => (
+                    habits.map((habit, index) => (
                       <TableRow key={habit.id} data-state={selectedHabits.includes(habit.id) && 'selected'}>
                         <TableCell>
                            <Checkbox
@@ -300,6 +335,28 @@ export default function ManageHabitsPage() {
                             }}
                             aria-label={`Select habit ${habit.name}`}
                           />
+                        </TableCell>
+                         <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => handleMoveHabit(habit.id, 'up')}
+                              disabled={index === 0}
+                            >
+                              <ArrowUp className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => handleMoveHabit(habit.id, 'down')}
+                              disabled={index === habits.length - 1}
+                            >
+                              <ArrowDown className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
@@ -321,7 +378,7 @@ export default function ManageHabitsPage() {
                       </TableRow>
                     ))
                   ) : (
-                    <TableRow><TableCell colSpan={5} className="h-24 text-center">No habits found.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={6} className="h-24 text-center">No habits found.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
