@@ -17,15 +17,13 @@ const LOCAL_STORAGE_KEY_PREFIX = 'hiddenHabits_';
  * }} An object containing the list of hidden habits and functions to manipulate them.
  */
 export const useHiddenHabits = (selectedDate?: Date) => {
-  // Determine the effective date key for local storage
-  const dateKey = selectedDate
-    ? selectedDate.toISOString().split('T')[0] // YYYY-MM-DD format
-    : new Date().toISOString().split('T')[0];
-
+  const dateKey = selectedDate ? selectedDate.toISOString().split('T')[0] : '';
   const localStorageKey = `${LOCAL_STORAGE_KEY_PREFIX}${dateKey}`;
 
-  // State to hold the hidden habits for the current date
   const [hiddenHabits, setHiddenHabits] = useState<string[]>(() => {
+    if (typeof window === 'undefined' || !dateKey) {
+      return [];
+    }
     try {
       const storedHabits = localStorage.getItem(localStorageKey);
       return storedHabits ? JSON.parse(storedHabits) : [];
@@ -35,16 +33,28 @@ export const useHiddenHabits = (selectedDate?: Date) => {
     }
   });
 
-  // Effect to update local storage whenever hiddenHabits changes
+  // When the date changes, we need to re-read from local storage for the new key.
   useEffect(() => {
+    if (!dateKey) return;
+    try {
+      const storedHabits = localStorage.getItem(localStorageKey);
+      setHiddenHabits(storedHabits ? JSON.parse(storedHabits) : []);
+    } catch (error) {
+      console.error("Failed to parse hidden habits from local storage:", error);
+      setHiddenHabits([]);
+    }
+  }, [dateKey, localStorageKey]);
+
+  // Effect to update local storage whenever hiddenHabits for the current date changes.
+  useEffect(() => {
+    if (!dateKey) return;
     try {
       localStorage.setItem(localStorageKey, JSON.stringify(hiddenHabits));
     } catch (error) {
       console.error("Failed to save hidden habits to local storage:", error);
     }
-  }, [hiddenHabits, localStorageKey]);
+  }, [hiddenHabits, localStorageKey, dateKey]);
 
-  // Function to hide a habit
   const hideHabit = useCallback((habitToHide: string) => {
     setHiddenHabits(prevHabits => {
       if (!prevHabits.includes(habitToHide)) {
@@ -54,7 +64,6 @@ export const useHiddenHabits = (selectedDate?: Date) => {
     });
   }, []);
 
-  // Function to show all habits (clear hidden habits for the current date)
   const showAllHabits = useCallback(() => {
     setHiddenHabits([]);
   }, []);
