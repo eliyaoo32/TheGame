@@ -144,30 +144,6 @@ export default function DashboardPage() {
     });
   };
 
-  const groupedHabits = useMemo(() => {
-    if (habits.length === 0) return {};
-    
-    // The habits are already sorted by `order` from the service
-    const sortedHabits = [...habits].sort((a, b) => {
-        const catA = a.categoryName || 'zzz'; // Uncategorized last
-        const catB = b.categoryName || 'zzz';
-        if (catA < catB) return -1;
-        if (catA > catB) return 1;
-        // Within the same category, maintain the master order
-        return (a.order ?? 0) - (b.order ?? 0);
-    });
-
-    return sortedHabits.reduce((groups, habit) => {
-        const category = habit.categoryName || 'Uncategorized';
-        if (!groups[category]) {
-            groups[category] = [];
-        }
-        groups[category].push(habit);
-        return groups;
-    }, {} as { [key: string]: Habit[] });
-  }, [habits]);
-
-
   return (
     <>
       <div className="flex flex-col gap-6">
@@ -224,24 +200,15 @@ export default function DashboardPage() {
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-8">
-            {Object.entries(groupedHabits).map(([categoryName, habitsInCategory]) => (
-                <div key={categoryName}>
-                <h2 className="text-lg font-semibold md:text-xl font-headline mb-4">
-                    {categoryName}
-                </h2>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {habitsInCategory.map((habit) => (
-                        <HabitCard 
-                            key={habit.id} 
-                            habit={habit} 
-                            onReport={() => setReportingHabit(habit)}
-                            onRestart={handleRestartHabit}
-                            isUpdating={isPending && updatingHabitId === habit.id}
-                        />
-                    ))}
-                </div>
-                </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {habits.map((habit) => (
+                <HabitCard 
+                    key={habit.id} 
+                    habit={habit} 
+                    onReport={() => setReportingHabit(habit)}
+                    onRestart={handleRestartHabit}
+                    isUpdating={isPending && updatingHabitId === habit.id}
+                />
             ))}
           </div>
         )}

@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Habit } from '@/lib/types';
@@ -96,17 +97,22 @@ export function HabitCard({ habit, onReport, onRestart, isUpdating }: HabitCardP
   return (
     <Card className={cn("flex flex-col transition-shadow duration-200 hover:shadow-lg", habit.completed && "bg-muted/60")}>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             <HabitIcon name={habit.icon} className="h-6 w-6 text-muted-foreground" />
             <CardTitle className="text-lg font-medium">{habit.name}</CardTitle>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col items-end gap-2">
             <Badge variant={habit.frequency === 'daily' ? 'secondary' : 'outline'} className="capitalize">{habit.frequency}</Badge>
             {habit.completed && <Badge variant="secondary">Done!</Badge>}
           </div>
         </div>
-        <CardDescription>{getStatusText()}</CardDescription>
+        <div className="flex justify-between items-center mt-2">
+            <CardDescription>{getStatusText()}</CardDescription>
+            {habit.categoryName && (
+                <Badge variant="outline" className="font-normal">{habit.categoryName}</Badge>
+            )}
+        </div>
       </CardHeader>
       <CardContent className="flex-grow">
         <Progress value={getProgressPercentage()} aria-label={`${habit.name} progress`} />
