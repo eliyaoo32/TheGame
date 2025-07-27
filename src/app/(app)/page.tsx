@@ -59,7 +59,13 @@ export default function DashboardPage() {
   }, [fetchHabits, selectedDate]);
   
   const visibleHabits = useMemo(() => {
-    return habits.filter(habit => !hiddenHabits.includes(habit.id));
+    return habits
+      .filter(habit => !hiddenHabits.includes(habit.id))
+      .sort((a, b) => {
+        if (a.completed && !b.completed) return 1;
+        if (!a.completed && b.completed) return -1;
+        return (a.order ?? 0) - (b.order ?? 0);
+      });
   }, [habits, hiddenHabits]);
 
   const handleSaveProgress = (habit: Habit, value: any) => {
