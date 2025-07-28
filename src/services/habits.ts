@@ -15,6 +15,7 @@ import {
   type QueryDocumentSnapshot,
   orderBy,
   runTransaction,
+  setDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Habit, HabitFrequency, HabitReport, Category, HabitType } from '@/lib/types';
@@ -631,4 +632,36 @@ export const updateHabitOrder = async (userId: string, habitIds: string[]) => {
     });
 
     await batch.commit();
+};
+
+
+// ========== HIDDEN HABITS FUNCTIONS ==========
+
+export const getHiddenHabitsForDate = async (userId: string, date: Date): Promise<string[]> => {
+    if (!userId) return [];
+    try {
+        const dateKey = format(date, 'yyyy-MM-dd');
+        const docRef = doc(db, 'users', userId, 'hiddenHabits', dateKey);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+            return docSnap.data().habitIds || [];
+        }
+        return [];
+    } catch (error) {
+        console.error("Error fetching hidden habits:", error);
+        return [];
+    }
+};
+
+export const updateHiddenHabitsForDate = async (userId: string, date: Date, habitIds: string[]): Promise<void> => {
+    if (!userId) throw new Error("User not authenticated");
+    try {
+        const dateKey = format(date, 'yyyy-MM-dd');
+        const docRef = doc(db, 'users', userId, 'hiddenHabits', dateKey);
+        await setDoc(docRef, { habitIds });
+    } catch (error) {
+        console.error("Error updating hidden habits:", error);
+        throw error;
+    }
 };

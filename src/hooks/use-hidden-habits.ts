@@ -1,76 +1,87 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-
-const LOCAL_STORAGE_KEY_PREFIX = 'hiddenHabits_';
+import { useAuth } from '@/context/auth-provider';
+import { getHiddenHabitsForDate, updateHiddenHabitsForDate } from '@/services/habits';
 
 /**
- * A React hook for managing hidden habits associated with a specific date.
- * Habits are stored in local storage.
+ * A React hook for managing hidden habits associated with a specific date, stored in Firestore.
  *
- * @param {Date} [selectedDate] - The date for which to manage hidden habits. Defaults to today's date if not provided.
+ * @param {Date} [selectedDate] - The date for which to manage hidden habits.
  * @returns {{
  * hiddenHabits: string[];
- * hideHabit: (habit: string) => void;
+ * hideHabit: (habitId: string) => void;
  * showAllHabits: () => void;
+ * isLoading: boolean;
  * }} An object containing the list of hidden habits and functions to manipulate them.
  */
 export const useHiddenHabits = (selectedDate?: Date) => {
-  const dateKey = selectedDate ? selectedDate.toISOString().split('T')[0] : '';
-  const localStorageKey = `${LOCAL_STORAGE_KEY_PREFIX}${dateKey}`;
+  const { user } = useAuth();
+  const [hiddenHabits, setHiddenHabits] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [hiddenHabits, setHiddenHabits] = useState<string[]>(() => {
-    if (typeof window === 'undefined' || !dateKey) {
-      return [];
-    }
-    try {
-      const storedHabits = localStorage.getItem(localStorageKey);
-      return storedHabits ? JSON.parse(storedHabits) : [];
-    } catch (error) {
-      console.error("Failed to parse hidden habits from local storage:", error);
-      return [];
-    }
-  });
-
-  // When the date changes, we need to re-read from local storage for the new key.
+  // Effect to fetch hidden habits when the date or user changes.
   useEffect(() => {
-    if (!dateKey) return;
-    try {
-      const storedHabits = localStorage.getItem(localStorageKey);
-      setHiddenHabits(storedHabits ? JSON.parse(storedHabits) : []);
-    } catch (error) {
-      console.error("Failed to parse hidden habits from local storage:", error);
-      setHiddenHabits([]);
+    if (!user || !selectedDate) {
+      setIsLoading(false);
+      return;
     }
-  }, [dateKey, localStorageKey]);
 
-  // Effect to update local storage whenever hiddenHabits for the current date changes.
-  useEffect(() => {
-    if (!dateKey) return;
+    let isMounted = true;
+    const fetchHiddenHabits = async () => {
+      setIsLoading(true);
+      try {
+        const habits = await getHiddenHabitsForDate(user.uid, selectedDate);
+        if (isMounted) {
+          setHiddenHabits(habits);
+        }
+      } catch (error) {
+        console.error("Failed to fetch hidden habits from Firestore:", error);
+        if (isMounted) {
+          setHiddenHabits([]);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    fetchHiddenHabits();
+    
+    return () => { isMounted = false; };
+  }, [selectedDate, user]);
+
+  const updateRemoteHabits = async (newHabits: string[]) => {
+    if (!user || !selectedDate) return;
     try {
-      localStorage.setItem(localStorageKey, JSON.stringify(hiddenHabits));
+      await updateHiddenHabitsForDate(user.uid, selectedDate, newHabits);
     } catch (error) {
-      console.error("Failed to save hidden habits to local storage:", error);
+      console.error("Failed to update hidden habits in Firestore:", error);
+      // Optional: Add toast notification for the user
     }
-  }, [hiddenHabits, localStorageKey, dateKey]);
+  };
 
   const hideHabit = useCallback((habitToHide: string) => {
     setHiddenHabits(prevHabits => {
       if (!prevHabits.includes(habitToHide)) {
-        return [...prevHabits, habitToHide];
+        const newHabits = [...prevHabits, habitToHide];
+        updateRemoteHabits(newHabits);
+        return newHabits;
       }
       return prevHabits;
     });
-  }, []);
+  }, [user, selectedDate]);
 
   const showAllHabits = useCallback(() => {
     setHiddenHabits([]);
-  }, []);
+    updateRemoteHabits([]);
+  }, [user, selectedDate]);
 
   return {
     hiddenHabits,
     hideHabit,
     showAllHabits,
+    isLoading,
   };
 };

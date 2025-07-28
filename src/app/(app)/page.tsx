@@ -25,7 +25,7 @@ export default function DashboardPage() {
   const [reportingHabit, setReportingHabit] = useState<Habit | null>(null);
   const [updatingHabitId, setUpdatingHabitId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
-  const { hiddenHabits, hideHabit, showAllHabits } = useHiddenHabits(selectedDate);
+  const { hiddenHabits, hideHabit, showAllHabits, isLoading: isHiddenHabitsLoading } = useHiddenHabits(selectedDate);
 
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
@@ -59,6 +59,7 @@ export default function DashboardPage() {
   }, [fetchHabits, selectedDate]);
   
   const visibleHabits = useMemo(() => {
+    if (isHiddenHabitsLoading) return [];
     return habits
       .filter(habit => !hiddenHabits.includes(habit.id))
       .sort((a, b) => {
@@ -66,7 +67,7 @@ export default function DashboardPage() {
         if (!a.completed && b.completed) return -1;
         return (a.order ?? 0) - (b.order ?? 0);
       });
-  }, [habits, hiddenHabits]);
+  }, [habits, hiddenHabits, isHiddenHabitsLoading]);
 
   const handleSaveProgress = (habit: Habit, value: any) => {
     if (!user || !selectedDate) return;
@@ -156,6 +157,8 @@ export default function DashboardPage() {
     });
   };
   
+  const isDashboardLoading = loading || isHiddenHabitsLoading;
+
   return (
     <>
       <div className="flex flex-col gap-6">
@@ -199,7 +202,7 @@ export default function DashboardPage() {
           </Popover>
         </div>
         
-        {loading ? (
+        {isDashboardLoading ? (
            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-56 w-full rounded-lg" />)}
           </div>
