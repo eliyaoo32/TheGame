@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Settings, BarChartHorizontal, ClipboardList } from 'lucide-react';
+import { Home, Settings, BarChartHorizontal } from 'lucide-react';
 import { Logo } from '@/components/icons';
 import { cn } from '@/lib/utils';
 
@@ -14,7 +14,6 @@ export function AppSidebar({ className }: { className?: string }) {
     { href: '/', icon: Home, label: 'Dashboard' },
     { href: '/reports', icon: BarChartHorizontal, label: 'Reports' },
     { href: '/manage-habits', icon: Settings, label: 'Manage Habits' },
-    { href: '/diet-planner', icon: ClipboardList, label: 'Diet Planner' },
   ];
 
   return (

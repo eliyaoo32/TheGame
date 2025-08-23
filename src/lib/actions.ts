@@ -2,10 +2,7 @@
 'use server';
 
 import { habitAgent } from '@/ai/flows/habit-agent-flow';
-import { dietAnalysis } from '@/ai/flows/diet-analysis-flow';
-import { dietQA } from '@/ai/flows/diet-qa-flow';
 import { z } from 'zod';
-import type { DietPlan } from './types';
 
 const agentQuerySchema = z.object({
   query: z.string().min(1),
@@ -24,39 +21,4 @@ export async function invokeHabitAgent(input: z.infer<typeof agentQuerySchema>):
         }
         return { success: false, error: 'The AI agent failed to process your request.' };
     }
-}
-
-// Diet Planner Actions
-
-const dietAnalysisSchema = z.object({
-  dietPlan: z.any(), // Using any() for simplicity, as backend types will handle it
-});
-
-export async function invokeDietAnalysis(input: { dietPlan: DietPlan }): Promise<{success: boolean, feedback?: string, error?: string}> {
-  try {
-    // No need for heavy validation here, it's coming from our own client
-    const result = await dietAnalysis({ dietPlan: input.dietPlan });
-    return { success: true, feedback: result.feedback };
-  } catch (error) {
-    console.error('Failed to invoke Diet Analysis flow', error);
-    return { success: false, error: 'The AI failed to analyze your diet plan.' };
-  }
-}
-
-const dietQaSchema = z.object({
-  question: z.string().min(1),
-});
-
-export async function invokeDietQA(input: z.infer<typeof dietQaSchema>): Promise<{success: boolean, answer?: string, error?: string}> {
-  try {
-    const { question } = dietQaSchema.parse(input);
-    const result = await dietQA({ question });
-    return { success: true, answer: result.answer };
-  } catch (error) {
-    console.error('Failed to invoke Diet QA flow', error);
-     if (error instanceof z.ZodError) {
-      return { success: false, error: 'Invalid input.' };
-    }
-    return { success: false, error: 'The AI failed to answer your question.' };
-  }
 }
