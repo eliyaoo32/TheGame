@@ -240,6 +240,9 @@ export const getHabitById = async (userId: string, habitId: string): Promise<Omi
 }
 
 export const addHabit = async (userId: string, habitData: HabitInputData) => {
+    if (!userId) {
+        throw new Error('User is not authenticated.');
+    }
     // Basic validation for required fields
     if (!habitData.name?.trim()) throw new Error('Habit name is required.');
     if (!habitData.description?.trim()) throw new Error('Habit description is required.');
