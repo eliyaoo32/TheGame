@@ -1,5 +1,3 @@
-
-
 export type HabitType = 'duration' | 'time' | 'boolean' | 'number' | 'options';
 export type HabitFrequency = 'daily' | 'weekly';
 
@@ -30,4 +28,11 @@ export type Habit = {
   categoryId?: string;
   categoryName?: string;
   order: number;
+};
+
+export type UserSummary = {
+  id: string;
+  displayName: string | null;
+  email: string | null;
+  photoURL: string | null;
 };

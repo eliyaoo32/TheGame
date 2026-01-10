@@ -2,7 +2,8 @@
 
 import { useState, useEffect, createContext, useContext } from 'react';
 import { onAuthStateChanged, signOut as firebaseSignOut, type User } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 
 // A mock user object that matches the Firebase User type shape
 const mockUser: User = {
@@ -66,6 +67,23 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
 });
 
+// This function will create/update a user document in the 'users' collection
+const updateUserProfile = async (user: User) => {
+    if (!user) return;
+    const userDocRef = doc(db, 'users', user.uid);
+    try {
+        await setDoc(userDocRef, {
+            displayName: user.displayName,
+            email: user.email,
+            photoURL: user.photoURL,
+            lastLogin: new Date().toISOString(),
+        }, { merge: true }); // Use merge to avoid overwriting other fields
+    } catch (error) {
+        console.error("Error updating user profile in Firestore: ", error);
+    }
+};
+
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,12 +91,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     if (isTestUser) {
+        updateUserProfile(mockUser);
         setLoading(false);
         return;
     };
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
+      if (user) {
+        updateUserProfile(user);
+      }
       setLoading(false);
     });
     return () => unsubscribe();

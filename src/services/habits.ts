@@ -289,19 +289,15 @@ export const addHabit = async (userId: string, habitData: HabitInputData) => {
 
     // To set the initial order, we need to know how many habits already exist.
     // This is best done in a transaction to avoid race conditions.
-    return await runTransaction(db, async (transaction) => {
-        const snapshot = await transaction.get(query(habitsCollectionRef));
-        const currentCount = snapshot.size;
-
-        const newHabit = {
-            ...dataToSave,
-            order: currentCount,
-            createdAt: Timestamp.now(),
-        };
-        const docRef = doc(collection(db, 'users', userId, 'habits'));
-        transaction.set(docRef, newHabit);
-        return docRef.id;
-    });
+    const snapshot = await getDocs(query(habitsCollectionRef));
+    const currentCount = snapshot.size;
+    const newHabit = {
+        ...dataToSave,
+        order: currentCount,
+        createdAt: Timestamp.now(),
+    };
+    const docRef = await addDoc(habitsCollectionRef, newHabit);
+    return docRef.id;
 };
 
 export const addHabitReport = async (userId: string, habitId: string, value: any, date: Date = new Date()) => {

@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { Habit } from '@/lib/types';
@@ -19,28 +18,29 @@ import { HabitIcon } from '@/components/habit-icon';
 
 interface HabitCardProps {
   habit: Habit;
-  onReport: (habit: Habit) => void;
-  onRestart: (habit: Habit) => void;
-  onHide: (habitId: string) => void;
+  onReport?: (habit: Habit) => void;
+  onRestart?: (habit: Habit) => void;
+  onHide?: (habitId: string) => void;
   isUpdating?: boolean;
+  isReadOnly?: boolean;
 }
 
-export function HabitCard({ habit, onReport, onRestart, onHide, isUpdating }: HabitCardProps) {
+export function HabitCard({ habit, onReport, onRestart, onHide, isUpdating, isReadOnly = false }: HabitCardProps) {
 
   const handleReport = () => {
-    if (!isUpdating) {
+    if (!isReadOnly && onReport && !isUpdating) {
         onReport(habit);
     }
   };
 
   const handleRestart = () => {
-    if (!isUpdating) {
+    if (!isReadOnly && onRestart && !isUpdating) {
         onRestart(habit);
     }
   };
   
   const handleHide = () => {
-    if (!isUpdating) {
+    if (!isReadOnly && onHide && !isUpdating) {
         onHide(habit.id);
     }
   }
@@ -124,38 +124,40 @@ export function HabitCard({ habit, onReport, onRestart, onHide, isUpdating }: Ha
       <CardContent className="flex-grow">
         <Progress value={getProgressPercentage()} aria-label={`${habit.name} progress`} />
       </CardContent>
-      <CardFooter className="gap-2">
-        <Button
-          onClick={handleReport}
-          disabled={isUpdating}
-          className="w-full"
-        >
-          {isUpdating ? 'Saving...' : 'Report Progress'}
-        </Button>
-        <div className="flex">
-            {habit.progress > 0 && (
+      {!isReadOnly && (
+        <CardFooter className="gap-2">
+            <Button
+            onClick={handleReport}
+            disabled={isUpdating}
+            className="w-full"
+            >
+            {isUpdating ? 'Saving...' : 'Report Progress'}
+            </Button>
+            <div className="flex">
+                {habit.progress > 0 && (
+                    <Button
+                        onClick={handleRestart}
+                        disabled={isUpdating}
+                        variant="outline"
+                        size="icon"
+                        aria-label="Restart habit progress"
+                        className="mr-2"
+                    >
+                        <RotateCcw className="h-4 w-4" />
+                    </Button>
+                )}
                 <Button
-                    onClick={handleRestart}
+                    onClick={handleHide}
                     disabled={isUpdating}
                     variant="outline"
                     size="icon"
-                    aria-label="Restart habit progress"
-                    className="mr-2"
+                    aria-label="Hide habit for today"
                 >
-                    <RotateCcw className="h-4 w-4" />
+                    <EyeOff className="h-4 w-4" />
                 </Button>
-            )}
-            <Button
-                onClick={handleHide}
-                disabled={isUpdating}
-                variant="outline"
-                size="icon"
-                aria-label="Hide habit for today"
-            >
-                <EyeOff className="h-4 w-4" />
-            </Button>
-        </div>
-      </CardFooter>
+            </div>
+        </CardFooter>
+      )}
     </Card>
   );
 }

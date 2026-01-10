@@ -1,9 +1,8 @@
-
 'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Settings, BarChartHorizontal } from 'lucide-react';
+import { Home, Settings, BarChartHorizontal, Users } from 'lucide-react';
 import { Logo } from '@/components/icons';
 import { cn } from '@/lib/utils';
 
@@ -13,6 +12,7 @@ export function AppSidebar({ className }: { className?: string }) {
   const navItems = [
     { href: '/', icon: Home, label: 'Dashboard' },
     { href: '/reports', icon: BarChartHorizontal, label: 'Reports' },
+    { href: '/friends', icon: Users, label: 'Friends' },
     { href: '/manage-habits', icon: Settings, label: 'Manage Habits' },
   ];
 
@@ -33,7 +33,7 @@ export function AppSidebar({ className }: { className?: string }) {
                 href={item.href}
                 className={cn(
                   'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary',
-                  pathname === item.href && 'bg-muted text-primary'
+                  (pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))) && 'bg-muted text-primary'
                 )}
               >
                 <item.icon className="h-4 w-4" />

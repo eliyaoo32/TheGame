@@ -8,6 +8,7 @@ import { getHiddenHabitsForDate, updateHiddenHabitsForDate } from '@/services/ha
  * A React hook for managing hidden habits associated with a specific date, stored in Firestore.
  *
  * @param {Date} [selectedDate] - The date for which to manage hidden habits.
+ * @param {boolean} [isReadOnly=false] - If true, the hook will only fetch data and not allow modifications.
  * @returns {{
  * hiddenHabits: string[];
  * hideHabit: (habitId: string) => void;
@@ -15,7 +16,7 @@ import { getHiddenHabitsForDate, updateHiddenHabitsForDate } from '@/services/ha
  * isLoading: boolean;
  * }} An object containing the list of hidden habits and functions to manipulate them.
  */
-export const useHiddenHabits = (selectedDate?: Date) => {
+export const useHiddenHabits = (selectedDate?: Date, isReadOnly = false) => {
   const { user } = useAuth();
   const [hiddenHabits, setHiddenHabits] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,7 +54,7 @@ export const useHiddenHabits = (selectedDate?: Date) => {
   }, [selectedDate, user]);
 
   const updateRemoteHabits = async (newHabits: string[]) => {
-    if (!user || !selectedDate) return;
+    if (isReadOnly || !user || !selectedDate) return;
     try {
       await updateHiddenHabitsForDate(user.uid, selectedDate, newHabits);
     } catch (error) {
@@ -63,6 +64,7 @@ export const useHiddenHabits = (selectedDate?: Date) => {
   };
 
   const hideHabit = useCallback((habitToHide: string) => {
+    if (isReadOnly) return;
     setHiddenHabits(prevHabits => {
       if (!prevHabits.includes(habitToHide)) {
         const newHabits = [...prevHabits, habitToHide];
@@ -71,12 +73,13 @@ export const useHiddenHabits = (selectedDate?: Date) => {
       }
       return prevHabits;
     });
-  }, [user, selectedDate]);
+  }, [user, selectedDate, isReadOnly]);
 
   const showAllHabits = useCallback(() => {
+    if (isReadOnly) return;
     setHiddenHabits([]);
     updateRemoteHabits([]);
-  }, [user, selectedDate]);
+  }, [user, selectedDate, isReadOnly]);
 
   return {
     hiddenHabits,
