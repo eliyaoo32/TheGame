@@ -12,15 +12,17 @@ const agentInputSchema = z.object({
 });
 
 export async function invokeHabitAgent(input: z.infer<typeof agentInputSchema>): Promise<{success: boolean, message?: string, error?: string}> {
+    console.log('[Action: invokeHabitAgent] Received request for userId:', input.userId);
     try {
         const validatedInput = agentInputSchema.parse(input);
         const result = await habitAgent(validatedInput);
+        console.log('[Action: invokeHabitAgent] Agent returned successfully.');
         return { success: true, message: result.message };
-    } catch(error) {
-        console.error('failed to invoke agent', error);
+    } catch(error: any) {
+        console.error('[Action: invokeHabitAgent] Failed to invoke agent:', error);
         if (error instanceof z.ZodError) {
           return { success: false, error: 'Invalid input: ' + error.errors[0].message };
         }
-        return { success: false, error: 'The AI agent failed to process your request.' };
+        return { success: false, error: error.message || 'The AI agent failed to process your request.' };
     }
 }

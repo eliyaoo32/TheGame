@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Mic, Square, Loader2, Sparkles } from 'lucide-react';
+import { Mic, Square, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 import { invokeHabitAgent } from '@/lib/actions';
 import { useAuth } from '@/context/auth-provider';
 import { useToast } from '@/hooks/use-toast';
@@ -44,6 +44,13 @@ export function AIAgentBar({ onSuccess }: AIAgentBarProps) {
 
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        
+        if (audioBlob.size < 100) {
+            console.warn('Recording too short/empty');
+            setIsRecording(false);
+            return;
+        }
+
         const reader = new FileReader();
         reader.readAsDataURL(audioBlob);
         reader.onloadend = () => {
@@ -78,6 +85,7 @@ export function AIAgentBar({ onSuccess }: AIAgentBarProps) {
     if (!user) return;
 
     startTransition(async () => {
+      console.log('Sending voice command to server...');
       const result = await invokeHabitAgent({ audioDataUri, userId: user.uid });
       if (result?.success && result.message) {
         setAgentResponse({ message: result.message, type: 'success' });
@@ -125,7 +133,7 @@ export function AIAgentBar({ onSuccess }: AIAgentBarProps) {
                 )}
             </Button>
             <p className="text-sm font-medium text-muted-foreground">
-                {isPending ? "Processing..." : isRecording ? "Recording... (Release to Stop)" : "Click and Hold to Record"}
+                {isPending ? "Processing AI Analysis..." : isRecording ? "Recording... (Release to Stop)" : "Click and Hold to Record"}
             </p>
         </div>
 
@@ -134,13 +142,18 @@ export function AIAgentBar({ onSuccess }: AIAgentBarProps) {
             "w-full rounded-lg border p-4 text-sm animate-in fade-in slide-in-from-top-2",
             agentResponse.type === 'success' ? "bg-primary/5 border-primary/20" : "bg-destructive/5 border-destructive/20"
           )}>
-            <p className={cn(
-                'font-semibold mb-1',
-                agentResponse.type === 'success' ? 'text-primary' : 'text-destructive'
-            )}>
-              {agentResponse.type === 'success' ? 'AI Assistant:' : 'Error:'}
-            </p>
-            <p className="text-foreground leading-relaxed">{agentResponse.message}</p>
+            <div className="flex items-start gap-2">
+                {agentResponse.type === 'error' && <AlertCircle className="h-4 w-4 text-destructive mt-0.5" />}
+                <div className="flex-1">
+                    <p className={cn(
+                        'font-semibold mb-1',
+                        agentResponse.type === 'success' ? 'text-primary' : 'text-destructive'
+                    )}>
+                    {agentResponse.type === 'success' ? 'AI Assistant:' : 'Error details:'}
+                    </p>
+                    <p className="text-foreground leading-relaxed">{agentResponse.message}</p>
+                </div>
+            </div>
           </div>
         )}
       </CardContent>

@@ -33,8 +33,15 @@ const addHabitTool = ai.defineTool({
     inputSchema: AddHabitInputSchema.merge(UserScopedInputSchema),
     outputSchema: z.object({ habitId: z.string() }),
 }, async ({ userId, ...input }) => {
-    const habitId = await habitService.addHabit(userId, input);
-    return { habitId };
+    console.log('[Tool: addHabit] Starting execution:', { userId, ...input });
+    try {
+        const habitId = await habitService.addHabit(userId, input);
+        console.log('[Tool: addHabit] Success! Habit ID:', habitId);
+        return { habitId };
+    } catch (error) {
+        console.error('[Tool: addHabit] Error:', error);
+        throw error;
+    }
 });
 
 const updateHabitTool = ai.defineTool({
@@ -46,8 +53,15 @@ const updateHabitTool = ai.defineTool({
     }).merge(UserScopedInputSchema),
     outputSchema: z.object({ success: z.boolean() }),
 }, async ({ userId, habitId, data }) => {
-    await habitService.updateHabit(userId, habitId, data);
-    return { success: true };
+    console.log('[Tool: updateHabit] Starting execution:', { userId, habitId, data });
+    try {
+        await habitService.updateHabit(userId, habitId, data);
+        console.log('[Tool: updateHabit] Success!');
+        return { success: true };
+    } catch (error) {
+        console.error('[Tool: updateHabit] Error:', error);
+        throw error;
+    }
 });
 
 const addHabitReportTool = ai.defineTool({
@@ -60,9 +74,16 @@ const addHabitReportTool = ai.defineTool({
     }).merge(UserScopedInputSchema),
     outputSchema: z.object({ success: z.boolean() }),
 }, async ({ userId, habitId, value, date }) => {
-    const reportDate = date ? new Date(`${date}T12:00:00Z`) : new Date();
-    await habitService.addHabitReport(userId, habitId, value, reportDate);
-    return { success: true };
+    console.log('[Tool: addHabitReport] Starting execution:', { userId, habitId, value, date });
+    try {
+        const reportDate = date ? new Date(`${date}T12:00:00Z`) : new Date();
+        await habitService.addHabitReport(userId, habitId, value, reportDate);
+        console.log('[Tool: addHabitReport] Success!');
+        return { success: true };
+    } catch (error) {
+        console.error('[Tool: addHabitReport] Error:', error);
+        throw error;
+    }
 });
 
 
@@ -73,6 +94,7 @@ const HabitAgentOutputSchema = z.object({
 export type HabitAgentOutput = z.infer<typeof HabitAgentOutputSchema>;
 
 export async function habitAgent(input: { query?: string, audioDataUri?: string, userId: string }): Promise<HabitAgentOutput> {
+    console.log('[HabitAgent] Start process with input type:', input.audioDataUri ? 'AUDIO' : 'TEXT');
     return habitAgentFlow(input);
 }
 
@@ -137,21 +159,32 @@ const habitAgentFlow = ai.defineFlow(
     outputSchema: HabitAgentOutputSchema,
   },
   async ({ query, audioDataUri, userId }) => {
+    console.log('[HabitAgentFlow] Executing flow for user:', userId);
+    
     const [habits, categories] = await Promise.all([
         habitService.getHabitDefinitions(userId),
         habitService.getCategories(userId),
     ]);
     
+    console.log(`[HabitAgentFlow] Loaded ${habits.length} habits and ${categories.length} categories for context.`);
+    
     const currentDate = new Date().toISOString().split('T')[0];
 
-    const { output } = await prompt({ query, audioDataUri, userId, habits, categories, currentDate });
-    
-    if (!output) {
-      return {
-        message:
-          'The AI assistant was unable to process the request. This might be due to safety filters or an overly complex command. Please try simplifying your request.',
-      };
+    try {
+        const { output } = await prompt({ query, audioDataUri, userId, habits, categories, currentDate });
+        
+        if (!output) {
+            console.warn('[HabitAgentFlow] AI returned null output.');
+            return {
+                message: 'The AI assistant was unable to process the request. This might be due to safety filters or an overly complex command.',
+            };
+        }
+        
+        console.log('[HabitAgentFlow] AI response message:', output.message);
+        return output;
+    } catch (err) {
+        console.error('[HabitAgentFlow] Fatal error during prompt execution:', err);
+        throw err;
     }
-    return output;
   }
 );
