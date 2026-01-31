@@ -89,7 +89,7 @@ const addHabitReportTool = ai.defineTool({
 
 // Main Flow
 const HabitAgentOutputSchema = z.object({
-  message: z.string().describe("A summary of the actions taken. Be brief."),
+    message: z.string().describe("A summary of the actions taken. Be brief."),
 });
 export type HabitAgentOutput = z.infer<typeof HabitAgentOutputSchema>;
 
@@ -100,14 +100,16 @@ export async function habitAgent(input: { query?: string, audioDataUri?: string,
 
 const prompt = ai.definePrompt({
     name: 'habitAgentPrompt',
-    input: { schema: z.object({
-        query: z.string().optional(),
-        audioDataUri: z.string().optional().describe("A data URI of the user's voice command."),
-        userId: z.string(),
-        habits: z.array(z.any()),
-        categories: z.array(z.any()),
-        currentDate: z.string()
-    }) },
+    input: {
+        schema: z.object({
+            query: z.string().optional(),
+            audioDataUri: z.string().optional().describe("A data URI of the user's voice command."),
+            userId: z.string(),
+            habits: z.array(z.any()),
+            categories: z.array(z.any()),
+            currentDate: z.string()
+        })
+    },
     output: { schema: HabitAgentOutputSchema },
     tools: [addHabitTool, updateHabitTool, addHabitReportTool],
     config: {
@@ -127,14 +129,15 @@ You must translate the user's request into specific tool calls. Do NOT just ackn
 1. **Tool Usage**: If the user says they completed something, you MUST call 'addHabitReport'. If they want to start something new, use 'addHabit'.
 2. **Languages**: The user may speak in Hebrew (e.g., "התאמנתי היום" means "I trained today"). You must understand Hebrew and execute tools in English.
 3. **User Identification**: Always pass '{{userId}}' as the 'userId' argument to every tool.
-4. **Context**: Use the 'Available Habits' list below to find the correct 'habitId' for the user's request. If the user mentions a habit that isn't in the list, you may need to ask for clarification or use 'addHabit' if it sounds like a new one.
-5. **Dates**: Today's date is {{currentDate}}. Calculate dates for 'yesterday' or specific weekdays relative to this.
+4. **Context**: Use the 'Available Habits' list below to find the correct 'habitId' for the user's request.
+5. **Options**: For habits with type 'options', you MUST use the EXACT value listed in the 'Options' field (case-sensitive). Do not change "Healthy" to "healthy".
+6. **Dates**: Today's date is {{currentDate}}. Calculate dates for 'yesterday' or specific weekdays relative to this.
 
 **CONTEXT**
 Available Habits:
 {{#if habits}}
 {{#each habits}}
-- "{{this.name}}" (ID: {{this.id}}, Type: {{this.type}})
+- "{{this.name}}" (ID: {{this.id}}, Type: {{this.type}}{{#if this.options}}, Options: [{{this.options}}]{{/if}})
 {{/each}}
 {{else}}
 User has no habits yet.
@@ -148,38 +151,38 @@ User has no habits yet.
 });
 
 const habitAgentFlow = ai.defineFlow(
-  {
-    name: 'habitAgentFlow',
-    inputSchema: z.object({ query: z.string().optional(), audioDataUri: z.string().optional(), userId: z.string() }),
-    outputSchema: HabitAgentOutputSchema,
-  },
-  async ({ query, audioDataUri, userId }) => {
-    console.log('[HabitAgentFlow] Fetching context for user:', userId);
-    
-    const [habits, categories] = await Promise.all([
-        habitService.getHabitDefinitions(userId),
-        habitService.getCategories(userId),
-    ]);
-    
-    console.log(`[HabitAgentFlow] Context Loaded: ${habits.length} habits found.`);
-    habits.forEach(h => console.log(` - Habit: ${h.name} (${h.id})`));
-    
-    const currentDate = new Date().toISOString().split('T')[0];
+    {
+        name: 'habitAgentFlow',
+        inputSchema: z.object({ query: z.string().optional(), audioDataUri: z.string().optional(), userId: z.string() }),
+        outputSchema: HabitAgentOutputSchema,
+    },
+    async ({ query, audioDataUri, userId }) => {
+        console.log('[HabitAgentFlow] Fetching context for user:', userId);
 
-    try {
-        // Pass maxSteps here, outside of the model's generation config
-        const { output } = await prompt({ query, audioDataUri, userId, habits, categories, currentDate }, { maxSteps: 10 });
-        
-        if (!output) {
-            console.error('[HabitAgentFlow] AI returned NO output.');
-            return { message: 'I encountered an error and could not process your request.' };
+        const [habits, categories] = await Promise.all([
+            habitService.getHabitDefinitions(userId),
+            habitService.getCategories(userId),
+        ]);
+
+        console.log(`[HabitAgentFlow] Context Loaded: ${habits.length} habits found.`);
+        habits.forEach(h => console.log(` - Habit: ${h.name} (${h.id})`));
+
+        const currentDate = new Date().toISOString().split('T')[0];
+
+        try {
+            // Pass maxSteps here, outside of the model's generation config
+            const { output } = await prompt({ query, audioDataUri, userId, habits, categories, currentDate }, {});
+
+            if (!output) {
+                console.error('[HabitAgentFlow] AI returned NO output.');
+                return { message: 'I encountered an error and could not process your request.' };
+            }
+
+            console.log('[HabitAgentFlow] Agent Response:', output.message);
+            return output;
+        } catch (err) {
+            console.error('[HabitAgentFlow] CRITICAL ERROR:', err);
+            throw err;
         }
-        
-        console.log('[HabitAgentFlow] Agent Response:', output.message);
-        return output;
-    } catch (err) {
-        console.error('[HabitAgentFlow] CRITICAL ERROR:', err);
-        throw err;
     }
-  }
 );

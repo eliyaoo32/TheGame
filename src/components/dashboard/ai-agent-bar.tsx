@@ -24,12 +24,23 @@ export function AIAgentBar({ onSuccess }: AIAgentBarProps) {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
   const [isRecording, setIsRecording] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
   const [agentResponse, setAgentResponse] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
+  const toggleRecording = async () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
+
   const startRecording = async () => {
+    if (isStarting || isRecording) return;
+    setIsStarting(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
@@ -44,11 +55,11 @@ export function AIAgentBar({ onSuccess }: AIAgentBarProps) {
 
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        
+
         if (audioBlob.size < 100) {
-            console.warn('Recording too short/empty');
-            setIsRecording(false);
-            return;
+          console.warn('Recording too short/empty');
+          setIsRecording(false);
+          return;
         }
 
         const reader = new FileReader();
@@ -71,6 +82,8 @@ export function AIAgentBar({ onSuccess }: AIAgentBarProps) {
         title: 'Microphone Error',
         description: 'Could not access your microphone. Please check your browser permissions.',
       });
+    } finally {
+      setIsStarting(false);
     }
   };
 
@@ -101,40 +114,36 @@ export function AIAgentBar({ onSuccess }: AIAgentBarProps) {
     <Card className="overflow-hidden">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 font-headline">
-            <Sparkles className="h-5 w-5 text-primary" />
-            Voice Assistant
+          <Sparkles className="h-5 w-5 text-primary" />
+          Voice Assistant
         </CardTitle>
         <CardDescription>
-            Hold the button to record your habit updates. You can speak in Hebrew!
+          Click to start recording your habit updates. You can speak in Hebrew!
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col items-center gap-6 py-8">
         <div className="flex flex-col items-center gap-4">
-            <Button
-                size="lg"
-                variant={isRecording ? "destructive" : "default"}
-                className={cn(
-                    "h-24 w-24 rounded-full transition-all duration-300 shadow-xl",
-                    isRecording && "animate-pulse scale-110"
-                )}
-                onMouseDown={startRecording}
-                onMouseUp={stopRecording}
-                onMouseLeave={stopRecording}
-                onTouchStart={startRecording}
-                onTouchEnd={stopRecording}
-                disabled={isPending}
-            >
-                {isPending ? (
-                    <Loader2 className="h-10 w-10 animate-spin" />
-                ) : isRecording ? (
-                    <Square className="h-10 w-10" />
-                ) : (
-                    <Mic className="h-10 w-10" />
-                )}
-            </Button>
-            <p className="text-sm font-medium text-muted-foreground">
-                {isPending ? "Processing AI Analysis..." : isRecording ? "Recording... (Release to Stop)" : "Click and Hold to Record"}
-            </p>
+          <Button
+            size="lg"
+            variant={isRecording ? "destructive" : "default"}
+            className={cn(
+              "h-24 w-24 rounded-full transition-all duration-300 shadow-xl",
+              isRecording && "animate-pulse scale-110"
+            )}
+            onClick={toggleRecording}
+            disabled={isPending || isStarting}
+          >
+            {isPending ? (
+              <Loader2 className="h-10 w-10 animate-spin" />
+            ) : isRecording ? (
+              <Square className="h-10 w-10" />
+            ) : (
+              <Mic className="h-10 w-10" />
+            )}
+          </Button>
+          <p className="text-sm font-medium text-muted-foreground">
+            {isPending ? "Processing AI Analysis..." : isStarting ? "Starting..." : isRecording ? "Recording... (Click to Stop)" : "Click to Record"}
+          </p>
         </div>
 
         {agentResponse && (
@@ -143,16 +152,16 @@ export function AIAgentBar({ onSuccess }: AIAgentBarProps) {
             agentResponse.type === 'success' ? "bg-primary/5 border-primary/20" : "bg-destructive/5 border-destructive/20"
           )}>
             <div className="flex items-start gap-2">
-                {agentResponse.type === 'error' && <AlertCircle className="h-4 w-4 text-destructive mt-0.5" />}
-                <div className="flex-1">
-                    <p className={cn(
-                        'font-semibold mb-1',
-                        agentResponse.type === 'success' ? 'text-primary' : 'text-destructive'
-                    )}>
-                    {agentResponse.type === 'success' ? 'AI Assistant:' : 'Error details:'}
-                    </p>
-                    <p className="text-foreground leading-relaxed">{agentResponse.message}</p>
-                </div>
+              {agentResponse.type === 'error' && <AlertCircle className="h-4 w-4 text-destructive mt-0.5" />}
+              <div className="flex-1">
+                <p className={cn(
+                  'font-semibold mb-1',
+                  agentResponse.type === 'success' ? 'text-primary' : 'text-destructive'
+                )}>
+                  {agentResponse.type === 'success' ? 'AI Assistant:' : 'Error details:'}
+                </p>
+                <p className="text-foreground leading-relaxed">{agentResponse.message}</p>
+              </div>
             </div>
           </div>
         )}
