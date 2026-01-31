@@ -1,13 +1,8 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
-import { Textarea } from '@/components/ui/textarea';
+import { useState, useTransition, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Sparkles } from 'lucide-react';
+import { Mic, Square, Loader2, Sparkles } from 'lucide-react';
 import { invokeHabitAgent } from '@/lib/actions';
 import { useAuth } from '@/context/auth-provider';
 import { useToast } from '@/hooks/use-toast';
@@ -20,37 +15,72 @@ import {
 } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
-
 interface AIAgentBarProps {
   onSuccess: () => void;
 }
-
-const agentSchema = z.object({
-  query: z.string().min(3, { message: "Please enter a command with at least 3 characters." }),
-});
 
 export function AIAgentBar({ onSuccess }: AIAgentBarProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
+  const [isRecording, setIsRecording] = useState(false);
   const [agentResponse, setAgentResponse] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
-  const form = useForm<z.infer<typeof agentSchema>>({
-    resolver: zodResolver(agentSchema),
-    defaultValues: { query: "" },
-  });
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
 
-  const onSubmit = (values: z.infer<typeof agentSchema>) => {
-    if (!user) {
-        toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to use the AI assistant.' });
-        return;
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+          const base64Audio = reader.result as string;
+          handleVoiceCommand(base64Audio);
+        };
+        // Stop all tracks to release the microphone
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setAgentResponse(null);
+    } catch (err) {
+      console.error("Error accessing microphone:", err);
+      toast({
+        variant: 'destructive',
+        title: 'Microphone Error',
+        description: 'Could not access your microphone. Please check your browser permissions.',
+      });
     }
-    setAgentResponse(null);
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const handleVoiceCommand = (audioDataUri: string) => {
+    if (!user) return;
+
     startTransition(async () => {
-      const result = await invokeHabitAgent({ ...values, userId: user.uid });
+      const result = await invokeHabitAgent({ audioDataUri, userId: user.uid });
       if (result?.success && result.message) {
         setAgentResponse({ message: result.message, type: 'success' });
-        form.reset();
         onSuccess();
       } else {
         const errorMessage = result?.error || 'The AI assistant returned an unexpected response. Please try again.';
@@ -60,51 +90,59 @@ export function AIAgentBar({ onSuccess }: AIAgentBarProps) {
   };
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 font-headline">
             <Sparkles className="h-5 w-5 text-primary" />
-            AI Assistant
+            Voice Assistant
         </CardTitle>
         <CardDescription>
-            Tell the AI what you want to do. For example: "I read 15 pages today" or "Create a new weekly habit to call my parents".
+            Hold the button to record your habit updates. You can speak in Hebrew!
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        {agentResponse && (
-          <div className="mb-4 rounded-md border p-3 text-sm">
-            <p
-              className={cn(
-                'font-medium',
-                agentResponse.type === 'success' ? 'text-primary' : 'text-destructive'
-              )}
+      <CardContent className="flex flex-col items-center gap-6 py-8">
+        <div className="flex flex-col items-center gap-4">
+            <Button
+                size="lg"
+                variant={isRecording ? "destructive" : "default"}
+                className={cn(
+                    "h-24 w-24 rounded-full transition-all duration-300 shadow-xl",
+                    isRecording && "animate-pulse scale-110"
+                )}
+                onMouseDown={startRecording}
+                onMouseUp={stopRecording}
+                onMouseLeave={stopRecording}
+                onTouchStart={startRecording}
+                onTouchEnd={stopRecording}
+                disabled={isPending}
             >
-              {agentResponse.type === 'success' ? 'AI Response:' : 'Error:'}
+                {isPending ? (
+                    <Loader2 className="h-10 w-10 animate-spin" />
+                ) : isRecording ? (
+                    <Square className="h-10 w-10" />
+                ) : (
+                    <Mic className="h-10 w-10" />
+                )}
+            </Button>
+            <p className="text-sm font-medium text-muted-foreground">
+                {isPending ? "Processing..." : isRecording ? "Recording... (Release to Stop)" : "Click and Hold to Record"}
             </p>
-            <p className="text-muted-foreground">{agentResponse.message}</p>
+        </div>
+
+        {agentResponse && (
+          <div className={cn(
+            "w-full rounded-lg border p-4 text-sm animate-in fade-in slide-in-from-top-2",
+            agentResponse.type === 'success' ? "bg-primary/5 border-primary/20" : "bg-destructive/5 border-destructive/20"
+          )}>
+            <p className={cn(
+                'font-semibold mb-1',
+                agentResponse.type === 'success' ? 'text-primary' : 'text-destructive'
+            )}>
+              {agentResponse.type === 'success' ? 'AI Assistant:' : 'Error:'}
+            </p>
+            <p className="text-foreground leading-relaxed">{agentResponse.message}</p>
           </div>
         )}
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-2">
-            <div className="flex items-start gap-2">
-                <FormField
-                control={form.control}
-                name="query"
-                render={({ field }) => (
-                    <FormItem className="flex-grow">
-                    <FormControl>
-                        <Textarea placeholder="Type your command here..." {...field} disabled={isPending} className="resize-none" />
-                    </FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
-                <Button type="submit" disabled={isPending}>
-                {isPending ? "Thinking..." : "Send"}
-                </Button>
-            </div>
-          </form>
-        </Form>
       </CardContent>
     </Card>
   );

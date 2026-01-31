@@ -1,9 +1,8 @@
-
 'use server';
 /**
- * @fileOverview An AI agent for managing habits.
+ * @fileOverview An AI agent for managing habits via text or voice.
  *
- * - habitAgent - A function that processes natural language commands to manage habits.
+ * - habitAgent - A function that processes natural language or audio commands to manage habits.
  */
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
@@ -22,7 +21,6 @@ const AddHabitInputSchema = z.object({
     options: z.string().optional().describe('Comma-separated list of options for "options" type habits.'),
 });
 
-// A base schema for tools that need the userId, to avoid repeating it.
 const UserScopedInputSchema = z.object({
     userId: z.string().describe("The user's unique ID."),
 });
@@ -74,14 +72,15 @@ const HabitAgentOutputSchema = z.object({
 });
 export type HabitAgentOutput = z.infer<typeof HabitAgentOutputSchema>;
 
-export async function habitAgent(query: string, userId: string): Promise<HabitAgentOutput> {
-    return habitAgentFlow({ query, userId });
+export async function habitAgent(input: { query?: string, audioDataUri?: string, userId: string }): Promise<HabitAgentOutput> {
+    return habitAgentFlow(input);
 }
 
 const prompt = ai.definePrompt({
     name: 'habitAgentPrompt',
     input: { schema: z.object({
-        query: z.string(),
+        query: z.string().optional(),
+        audioDataUri: z.string().optional().describe("A data URI of the user's voice command."),
         userId: z.string(),
         habits: z.array(z.any()),
         categories: z.array(z.any()),
@@ -97,15 +96,14 @@ const prompt = ai.definePrompt({
             { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
         ],
     },
-    prompt: `You are a task-oriented AI assistant for a habit tracking app. Your ONLY purpose is to translate the user's natural language request into one or more function calls using the provided tools. If the user asks to create multiple items (e.g., habits), you should call the appropriate tool for each one.
+    prompt: `You are a task-oriented AI assistant for a habit tracking app. Your ONLY purpose is to translate the user's request (either text or audio) into function calls using the provided tools.
 
-- Analyze the user's request.
-- Based on the request, decide which tool(s) to use. You can call tools multiple times.
-- Extract all necessary parameters for the tool from the request and the context below.
+- Analyze the user's request. It may be provided in the 'query' text field or as an 'audioDataUri' media part.
+- **IMPORTANT**: The user may speak in Hebrew. You must understand Hebrew and perform the corresponding tool calls in English.
+- Extract all necessary parameters for the tool from the request and context.
 - **You MUST pass the user ID '{{userId}}' to the 'userId' parameter for every tool call.**
-- **Pay close attention to dates. If the user mentions a specific day like "yesterday", "on Tuesday", or a date like "July 5th", you MUST calculate the correct date in 'YYYY-MM-DD' format and pass it to the 'date' parameter. Today's date is {{currentDate}}. If no date is mentioned, do not pass a date.**
-- If the request is ambiguous or you are missing information, ask the user for clarification. Do not try to guess.
-- After a tool is successfully called, you will receive its output. Summarize this result for the user in a friendly, concise message. If multiple tools were called, summarize all the actions taken.
+- **Dates**: If the user mentions "today", "yesterday", or specific days, calculate the date in 'YYYY-MM-DD' format based on today's date: {{currentDate}}.
+- If multiple actions are requested, call the appropriate tools multiple times.
 
 **CONTEXT**
 
@@ -127,49 +125,18 @@ Available Categories:
 The user has no categories.
 {{/if}}
 
-**IMPORTANT RULES FOR \`addHabitReport\`:**
-- When reporting, you MUST use the correct value based on the habit's type provided in the CONTEXT.
-- **Boolean**: If the user confirms doing the habit (e.g., "I did my workout"), use the value "true".
-- **Number/Duration**: If the user provides a number (e.g., "read 15 pages", "ran for 30 minutes"), use that number as a string (e.g., "15", "30"). If they just confirm doing it without a number (e.g., "I went to the gym"), you MUST assume the value is "1".
-- **Time**: If the user provides a time (e.g., "woke up at 7am"), use the time in HH:MM format (e.g., "07:00").
-- **Options**: The user might say something like "I had a healthy lunch". You must look at the available options for the "Lunch" habit (e.g., ["Healthy", "Junky", "Skipped"]) and find the best match. Use that option string as the value (e.g., "Healthy"). Do not use "true" for options-based habits.
-
-**TOOL USAGE EXAMPLES**
-
-- User says: "I read 15 pages today."
-- You should call: \`addHabitReport\` with the ID for the "Reading" habit, a value of "15", and the userId.
-
-- User says: "Yesterday I meditated for 10 minutes."
-- You should analyze "yesterday" relative to {{currentDate}} and call: \`addHabitReport\` with the ID for "Meditation", value "10", the userId, and the correct date string (e.g., if today is 2024-07-16, the date would be "2024-07-15").
-
-- User says: "I did my workout" and the "Workout" habit is of type "boolean".
-- You should call: \`addHabitReport\` with the ID for "Workout", a value of "true", and the userId.
-
-- User says: "I went to the gym today" and "Gym" is a "number" type habit.
-- You should call: \`addHabitReport\` with the ID for "Gym", a value of "1", and the userId.
-
-- User says: "My lunch was healthy".
-- You check the "Lunch" habit, see its type is "options" with options ["Healthy", "Junky", "Skipped"].
-- You should call: \`addHabitReport\` with the ID for "Lunch", value="Healthy", and the userId.
-
-- User says: "Add a new daily habit to drink 8 glasses of water."
-- You should call: \`addHabit\` with name="Drink water", frequency="daily", goal="8 glasses of water", description="A new habit to drink water", type="number", a relevant icon, and the userId.
-
-- User says: "change my reading goal to 20 pages"
-- You should call: \`updateHabit\` with the ID for "Reading", data={goal: "20 pages"}, and the userId.
-
-
 **USER REQUEST**
-"{{query}}"`,
+{{#if query}}Text: "{{query}}"{{/if}}
+{{#if audioDataUri}}Audio: {{media url=audioDataUri}}{{/if}}`,
 });
 
 const habitAgentFlow = ai.defineFlow(
   {
     name: 'habitAgentFlow',
-    inputSchema: z.object({ query: z.string(), userId: z.string() }),
+    inputSchema: z.object({ query: z.string().optional(), audioDataUri: z.string().optional(), userId: z.string() }),
     outputSchema: HabitAgentOutputSchema,
   },
-  async ({ query, userId }) => {
+  async ({ query, audioDataUri, userId }) => {
     const [habits, categories] = await Promise.all([
         habitService.getHabitDefinitions(userId),
         habitService.getCategories(userId),
@@ -177,7 +144,7 @@ const habitAgentFlow = ai.defineFlow(
     
     const currentDate = new Date().toISOString().split('T')[0];
 
-    const { output } = await prompt({ query, userId, habits, categories, currentDate });
+    const { output } = await prompt({ query, audioDataUri, userId, habits, categories, currentDate });
     
     if (!output) {
       return {
