@@ -111,7 +111,6 @@ const prompt = ai.definePrompt({
     output: { schema: HabitAgentOutputSchema },
     tools: [addHabitTool, updateHabitTool, addHabitReportTool],
     config: {
-        maxSteps: 10,
         safetySettings: [
             { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
             { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
@@ -168,7 +167,8 @@ const habitAgentFlow = ai.defineFlow(
     const currentDate = new Date().toISOString().split('T')[0];
 
     try {
-        const { output } = await prompt({ query, audioDataUri, userId, habits, categories, currentDate });
+        // Pass maxSteps here, outside of the model's generation config
+        const { output } = await prompt({ query, audioDataUri, userId, habits, categories, currentDate }, { maxSteps: 10 });
         
         if (!output) {
             console.error('[HabitAgentFlow] AI returned NO output.');
