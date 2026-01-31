@@ -1,4 +1,3 @@
-
 import {
   collection,
   addDoc,
@@ -240,6 +239,7 @@ export const getHabitById = async (userId: string, habitId: string): Promise<Omi
 }
 
 export const addHabit = async (userId: string, habitData: HabitInputData) => {
+    console.log(`[Service: addHabit] Starting for user: ${userId}`);
     if (!userId) {
         throw new Error('User is not authenticated.');
     }
@@ -288,7 +288,6 @@ export const addHabit = async (userId: string, habitData: HabitInputData) => {
     const habitsCollectionRef = collection(db, 'users', userId, 'habits');
 
     // To set the initial order, we need to know how many habits already exist.
-    // This is best done in a transaction to avoid race conditions.
     const snapshot = await getDocs(query(habitsCollectionRef));
     const currentCount = snapshot.size;
     const newHabit = {
@@ -297,12 +296,15 @@ export const addHabit = async (userId: string, habitData: HabitInputData) => {
         createdAt: Timestamp.now(),
     };
     const docRef = await addDoc(habitsCollectionRef, newHabit);
+    console.log(`[Service: addHabit] Success. New ID: ${docRef.id}`);
     return docRef.id;
 };
 
 export const addHabitReport = async (userId: string, habitId: string, value: any, date: Date = new Date()) => {
+    console.log(`[Service: addHabitReport] Request: user=${userId}, habit=${habitId}, val=${value}`);
     const habit = await getHabitById(userId, habitId);
     if (!habit) {
+        console.error(`[Service: addHabitReport] Habit NOT FOUND: ${habitId}`);
         throw new Error(`Habit with ID ${habitId} not found.`);
     }
 
@@ -311,7 +313,7 @@ export const addHabitReport = async (userId: string, habitId: string, value: any
 
     switch (habit.type) {
         case 'boolean':
-            if (value === true || value === 'true') {
+            if (value === true || value === 'true' || String(value).toLowerCase() === 'done' || String(value).toLowerCase() === 'yes') {
                 validatedValue = true;
             } else {
                 validationError = `Invalid value for boolean habit. Expected 'true', received ${value}.`;
@@ -328,7 +330,7 @@ export const addHabitReport = async (userId: string, habitId: string, value: any
             break;
         case 'time':
             if (typeof value !== 'string' || !/^\d{2}:\d{2}$/.test(value)) {
-                validationError = `Invalid value for time habit. Expected a string in HH:MM format, but received "${value}".`;
+                validationError = `Invalid value for time habit. Expected HH:MM, but received "${value}".`;
             }
             break;
         case 'options':
@@ -342,6 +344,7 @@ export const addHabitReport = async (userId: string, habitId: string, value: any
     }
 
     if (validationError) {
+        console.error(`[Service: addHabitReport] VALIDATION FAILED: ${validationError}`);
         throw new Error(validationError);
     }
     
@@ -351,6 +354,7 @@ export const addHabitReport = async (userId: string, habitId: string, value: any
     };
     const reportsCollectionRef = collection(db, 'users', userId, 'habits', habitId, 'reports');
     await addDoc(reportsCollectionRef, report);
+    console.log(`[Service: addHabitReport] SUCCESS recorded.`);
 };
 
 
@@ -358,7 +362,6 @@ export const updateHabit = async (userId: string, habitId: string, habitData: Pa
     const habitDocRef = doc(db, 'users', userId, 'habits', habitId);
     const dataToUpdate: { [key: string]: any } = { ...habitData };
 
-    // If goal or type is being updated, we need to re-validate against the final intended state
     if (dataToUpdate.goal !== undefined || dataToUpdate.type !== undefined) {
         const existingHabitSnap = await getDoc(habitDocRef);
         if (!existingHabitSnap.exists()) {
@@ -369,46 +372,42 @@ export const updateHabit = async (userId: string, habitId: string, habitData: Pa
         const newType = dataToUpdate.type || existingHabit.type;
         const newGoal = dataToUpdate.goal !== undefined ? dataToUpdate.goal : existingHabit.goal;
 
-        // Perform validation on the new state
         switch (newType) {
             case 'duration': {
                 if (newGoal?.trim()) {
                     const minutes = parseDuration(newGoal);
                     if (minutes === null) {
-                        throw new Error('Invalid goal for duration habit. Use format like "2h", "90m", or "1h 30m".');
+                        throw new Error('Invalid goal for duration habit.');
                     }
-                    dataToUpdate.goal = String(minutes); // Normalize to minutes
+                    dataToUpdate.goal = String(minutes);
                 }
                 break;
             }
             case 'time':
                  if (newGoal?.trim()) {
                     if (!/^\d{2}:\d{2}$/.test(newGoal)) {
-                       throw new Error('Invalid goal for time habit. Please use HH:MM format.');
+                       throw new Error('Invalid goal for time habit.');
                    }
                 }
                 break;
             case 'number':
                 if (newGoal?.trim()) {
                     if (!/^\d+/.test(newGoal)) {
-                       throw new Error('Invalid goal for number habit. Must start with a number (e.g., "25 pages").');
+                       throw new Error('Invalid goal for number habit.');
                    }
                 }
                 break;
             case 'options':
                 const newOptions = dataToUpdate.options !== undefined ? dataToUpdate.options : existingHabit.options;
                 if (!newOptions?.trim()) {
-                    throw new Error('Options are required for this habit type.');
+                    throw new Error('Options are required.');
                 }
-                 // Goal is optional for options type
                 break;
             case 'boolean':
-                // Goal is optional
                 break;
         }
     }
   
-    // Remove any fields that are explicitly set to undefined to avoid errors.
     for (const key in dataToUpdate) {
         if (dataToUpdate[key] === undefined) {
             delete dataToUpdate[key];
@@ -509,9 +508,6 @@ export const getHabitsWithReportsForMonth = async (userId: string, date: Date): 
 
     } catch (error) {
         console.error("Error fetching habits for month: ", error);
-        if (error instanceof Error && error.message.includes('permission-denied')) {
-            console.error("Firestore permission denied.");
-        }
         return [];
     }
 };
@@ -557,8 +553,8 @@ export const getHabitsWithReportsForWeek = async (userId: string, date: Date): P
             return {
                 ...habit,
                 reports,
-                progress: 0, // Not relevant for this view
-                completed: false, // Not relevant for this view
+                progress: 0,
+                completed: false,
                 categoryName: habit.categoryId ? categoriesMap.get(habit.categoryId) : undefined,
             } as Habit;
             })
@@ -567,9 +563,6 @@ export const getHabitsWithReportsForWeek = async (userId: string, date: Date): P
 
     } catch (error) {
         console.error("Error fetching habits for week: ", error);
-        if (error instanceof Error && error.message.includes('permission-denied')) {
-            console.error("Firestore permission denied.");
-        }
         return [];
     }
 };
@@ -580,23 +573,19 @@ export const getUniqueReportMonths = async (userId: string): Promise<Date[]> => 
     const habitsSnapshot = await getDocs(query(habitsCollectionRef));
     const allReportsTimestamps: Timestamp[] = [];
 
-    // This can be slow if there are many habits and reports.
-    // For a large-scale app, this data would be pre-aggregated.
     for (const habitDoc of habitsSnapshot.docs) {
         const reportsCollectionRef = collection(db, 'users', userId, 'habits', habitDoc.id, 'reports');
         const reportsSnapshot = await getDocs(query(reportsCollectionRef));
         reportsSnapshot.forEach(reportDoc => {
             const reportedAt = reportDoc.data().reportedAt;
-            // Check if reportedAt is a valid Firestore Timestamp before pushing
             if (reportedAt && typeof reportedAt.toDate === 'function') {
                 allReportsTimestamps.push(reportedAt as Timestamp);
             }
         });
     }
 
-    const uniqueMonths = new Set<string>(); // 'YYYY-MM'
+    const uniqueMonths = new Set<string>();
     allReportsTimestamps.forEach(ts => {
-        // Double check if `ts` is valid before calling `toDate`
         if (ts && typeof ts.toDate === 'function') {
             const date = ts.toDate();
             uniqueMonths.add(format(date, 'yyyy-MM'));
@@ -610,26 +599,21 @@ export const getUniqueReportMonths = async (userId: string): Promise<Date[]> => 
 
 export const updateHabitsCategory = async (userId: string, habitIds: string[], categoryId: string) => {
     if (!userId || habitIds.length === 0) return;
-
     const batch = writeBatch(db);
-
     habitIds.forEach(habitId => {
         const habitDocRef = doc(db, 'users', userId, 'habits', habitId);
         batch.update(habitDocRef, { categoryId });
     });
-
     await batch.commit();
 };
 
 export const updateHabitOrder = async (userId: string, habitIds: string[]) => {
     if (!userId) throw new Error("User not authenticated");
-
     const batch = writeBatch(db);
     habitIds.forEach((habitId, index) => {
         const habitRef = doc(db, 'users', userId, 'habits', habitId);
         batch.update(habitRef, { order: index });
     });
-
     await batch.commit();
 };
 
